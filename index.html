@@ -238,6 +238,7 @@
       </label>
       <div class="login-hint">הכניסה באמצעות אימות טלפון (SMS).<br>רק מספרים מורשים שהוגדרו במסך הניהול יכולים להיכנס.</div>
       <button class="btn primary" id="sendOtp">שליחת קוד</button>
+      <button class="btn ghost" id="haveCode" style="width:100%;justify-content:center;margin-top:9px">כבר קיבלתי קוד ›</button>
     </div>
 
     <div class="login-step" id="stepOtp">
@@ -246,6 +247,7 @@
         <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="______" dir="ltr">
       </label>
       <button class="btn primary" id="verifyOtp">כניסה למערכת</button>
+      <button class="btn ghost" id="backToPhone" style="width:100%;justify-content:center;margin-top:9px">‹ חזרה / שליחה מחדש</button>
     </div>
     <div id="recaptcha-container"></div>
   </div>
@@ -287,7 +289,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
       חזרה לתפריט
     </button>
-    <div class="title">ניהול משתמשים<small>הגדרות מערכת</small></div>
+    <div class="title" id="adminTitle">ניהול משתמשים<small>הגדרות מערכת</small></div>
     <div class="spacer"></div>
     <button class="btn primary" id="addUserBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
@@ -302,11 +304,40 @@
   <div class="menu-body">
     <div class="menu-inner">
       <h2>משתמשים מורשים</h2>
-      <p class="sub">משתמשים אלה רשאים להיכנס למערכת באמצעות מספר הטלפון שלהם</p>
+      <p class="sub" id="adminSub">משתמשים אלה רשאים להיכנס למערכת באמצעות מספר הטלפון שלהם</p>
       <div class="table-wrap">
       <table class="facades">
         <thead><tr><th>שם</th><th>טלפון</th><th>חברה</th><th>תפקיד</th><th>הרשאה</th><th></th></tr></thead>
         <tbody id="userRows"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ מנהל-על: ניהול חברות ============ -->
+<div class="view" id="superView">
+  <header>
+    <div class="title">ניהול חברות<small>מנהל‑על</small></div>
+    <div class="spacer"></div>
+    <button class="btn primary" id="addCompanyBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      חברה חדשה
+    </button>
+    <button class="btn ghost logout-btn" title="יציאה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 17l5-5-5-5M21 12H9M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/></svg>
+      יציאה
+    </button>
+    <div class="userbadge" id="badgeSuper"></div>
+  </header>
+  <div class="menu-body">
+    <div class="menu-inner">
+      <h2>חברות במערכת</h2>
+      <p class="sub">יצירת חברות, הקצאת מכסת משתמשים, וכניסה לניהול המשתמשים של כל חברה</p>
+      <div class="table-wrap">
+      <table class="facades">
+        <thead><tr><th>חברה</th><th>משתמשים</th><th>מכסה</th><th></th><th></th></tr></thead>
+        <tbody id="companyRows"></tbody>
       </table>
       </div>
     </div>
@@ -424,6 +455,20 @@
     <div class="panel-actions">
       <button class="btn primary" id="umSave">שמירה</button>
       <button class="btn" id="umCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ מודאל יצירת/עריכת חברה ============ -->
+<div class="modal-bg" id="companyModal">
+  <div class="panel">
+    <div class="panel-head"><h3 id="cmTitle">חברה חדשה</h3></div>
+    <p class="panel-sub">שם החברה ומכסת המשתמשים המרבית</p>
+    <div class="fld"><label>שם החברה</label><input type="text" id="cmName" autocomplete="off"></div>
+    <div class="fld"><label>מכסת משתמשים</label><input type="number" id="cmQuota" min="1" value="10" dir="ltr"></div>
+    <div class="panel-actions">
+      <button class="btn primary" id="cmSave">שמירה</button>
+      <button class="btn" id="cmCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -616,27 +661,51 @@
 
   /* ===================== כניסה (OTP) ===================== */
   /* ===================== כניסה (Firebase Phone Auth) ===================== */
+  function showPhoneStep(){ document.getElementById('stepOtp').classList.remove('active');
+    document.getElementById('stepPhone').classList.add('active'); }
+  function showOtpStep(){ document.getElementById('stepPhone').classList.remove('active');
+    document.getElementById('stepOtp').classList.add('active'); document.getElementById('otp').focus(); }
+  // מאתחל reCAPTCHA נקי בכל ניסיון — מונע שגיאת internal-error בניסיון חוזר
+  function resetRecaptcha(){
+    if(recaptcha){ try{recaptcha.clear();}catch(e){} recaptcha=null; }
+    const c=document.getElementById('recaptcha-container'); if(c) c.innerHTML='';
+  }
+
   document.getElementById('sendOtp').onclick=async ()=>{
     if(!FB_CONFIGURED){ showMsg('Firebase אינו מוגדר בקובץ.'); return; }
     const e164=toE164(document.getElementById('phone').value.trim());
     if(e164.replace(/\D/g,'').length<11){ showMsg('הזינו מספר טלפון תקין.'); return; }
+    const btn=document.getElementById('sendOtp'); btn.disabled=true;
     try{
-      if(!recaptcha) recaptcha=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible'});
+      resetRecaptcha();
+      recaptcha=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible'});
+      await recaptcha.render();
       confirmation=await auth.signInWithPhoneNumber(e164, recaptcha);
-      document.getElementById('stepPhone').classList.remove('active');
-      document.getElementById('stepOtp').classList.add('active');
-      document.getElementById('otp').focus();
+      showOtpStep();
       showMsg('נשלח קוד אימות ב‑SMS אל '+e164);
-    }catch(err){ console.error(err); showMsg('שגיאה בשליחת הקוד: '+(err.code||err.message));
-      if(recaptcha){ try{recaptcha.clear();}catch(e){} recaptcha=null; } }
+    }catch(err){ console.error(err);
+      const m={'auth/too-many-requests':'יותר מדי ניסיונות — נסו מאוחר יותר או השתמשו במספר בדיקה.',
+               'auth/invalid-phone-number':'מספר טלפון לא תקין.',
+               'auth/unauthorized-domain':'הדומיין אינו מורשה ב‑Firebase (Authorized domains).',
+               'auth/operation-not-allowed':'אימות טלפון אינו מופעל / אזור ה‑SMS חסום.'}[err.code]
+               || ('שגיאה בשליחת הקוד: '+(err.code||err.message));
+      showMsg(m, 7000); resetRecaptcha();
+    }finally{ btn.disabled=false; }
   };
   document.getElementById('verifyOtp').onclick=async ()=>{
-    if(!confirmation){ showMsg('שלחו קוד תחילה.'); return; }
+    if(!confirmation){ showMsg('יש לשלוח קוד תחילה (כפתור "שליחת קוד").'); return; }
+    const btn=document.getElementById('verifyOtp'); btn.disabled=true;
     try{
       const cred=await confirmation.confirm(document.getElementById('otp').value.trim());
       await enterWithFirebaseUser(cred.user);
     }catch(err){ console.error(err); showMsg('קוד שגוי או שפג תוקפו.'); }
+    finally{ btn.disabled=false; }
   };
+  document.getElementById('haveCode').onclick=()=>{
+    if(!confirmation){ showMsg('יש לשלוח קוד תחילה.'); return; }
+    showOtpStep();
+  };
+  document.getElementById('backToPhone').onclick=()=>{ showPhoneStep(); document.getElementById('otp').value=''; };
   document.getElementById('otp').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('verifyOtp').click(); });
   document.getElementById('phone').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('sendOtp').click(); });
 
@@ -646,16 +715,19 @@
       const snap=await db.collection('users').doc(user.phoneNumber).get();
       if(!snap.exists){ await auth.signOut(); showMsg('המספר אומת אך אינו מורשה במערכת. פנו למנהל.'); return; }
       currentUser={ id:user.phoneNumber, ...snap.data() };
+      renderBadges();
+      if(currentUser.superAdmin){ renderSuperView(); showView('superView'); return; }   // מנהל‑על
       document.getElementById('adminBtn').style.display = currentUser.admin ? '' : 'none';
-      renderBadges(); renderFacadeTable(); showView('menuView');
+      renderFacadeTable(); showView('menuView');
     }catch(err){ console.error(err); await auth.signOut(); showMsg('אין הרשאה או שאירעה שגיאה בטעינת הפרופיל.'); }
   }
 
   /* ===================== זיהוי משתמש ===================== */
   function renderBadges(){
     if(!currentUser) return;
-    const html=`<span class="nm">${currentUser.name}</span><span class="meta">${currentUser.company} · ${currentUser.role}</span>`;
-    ['badgeMenu','badgeApp','badgeAdmin'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
+    const role = currentUser.superAdmin ? 'מנהל‑על' : ((currentUser.company||'')+' · '+(currentUser.role||''));
+    const html=`<span class="nm">${currentUser.name}</span><span class="meta">${role}</span>`;
+    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
   }
 
   /* ===================== טבלת חזיתות ===================== */
@@ -673,15 +745,35 @@
     });
   }
 
-  /* ===================== ניהול משתמשים (Firestore) ===================== */
+  /* ===================== ניהול משתמשים + חברות (Firestore) ===================== */
   const userModal=document.getElementById('userModal');
-  let editingUser=null;   // {id, ...data} או null
+  const companyModal=document.getElementById('companyModal');
+  let editingUser=null, editingCompany=null;
+  let adminCompany=null;            // החברה שמנהלים כרגע את המשתמשים שלה
+  let companyQuota=null, companyUserCount=0;
+
+  // פתיחת מסך ניהול המשתמשים של חברה מסוימת
+  async function openAdminFor(company){
+    adminCompany=company;
+    document.getElementById('adminTitle').innerHTML='ניהול משתמשים<small>'+company+'</small>';
+    renderBadges(); showView('adminView');
+    await renderUserTable();
+  }
 
   async function renderUserTable(){
     const tb=document.getElementById('userRows');
     tb.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px">טוען…</td></tr>';
     try{
-      const qs=await db.collection('users').where('company','==',currentUser.company).get();
+      const [qs,cdoc]=await Promise.all([
+        db.collection('users').where('company','==',adminCompany).get(),
+        db.collection('companies').doc(adminCompany).get().catch(()=>null)
+      ]);
+      companyUserCount=qs.size;
+      companyQuota=(cdoc&&cdoc.exists)?(cdoc.data().quota??null):null;
+      const sub=document.getElementById('adminSub');
+      if(sub) sub.textContent = companyQuota!=null
+        ? ('נוצלו '+companyUserCount+' מתוך '+companyQuota+' משתמשים בחברה')
+        : (companyUserCount+' משתמשים בחברה');
       tb.innerHTML='';
       qs.forEach(s=>{
         const u={ id:s.id, ...s.data() };
@@ -689,7 +781,7 @@
         tr.innerHTML=`<td style="font-weight:600">${u.name||''}${u.id===currentUser.id?' <span class="tag-no">אני</span>':''}</td>
           <td style="font-family:var(--mono);font-size:12px" dir="ltr">${u.phone||u.id}</td>
           <td>${u.company||''}</td><td>${u.role||''}</td>
-          <td>${u.admin?'<span class="tag-admin">מנהל</span>':'<span class="tag-no">משתמש</span>'}</td>
+          <td>${u.admin?'<span class="tag-admin">מנהל חברה</span>':'<span class="tag-no">משתמש</span>'}</td>
           <td><div class="row-actions">
             <button class="icon-btn" data-act="edit">עריכה</button>
             <button class="icon-btn del" data-act="del">מחיקה</button>
@@ -707,7 +799,7 @@
     document.getElementById('umName').value   = u?u.name:'';
     document.getElementById('umPhone').value  = u?(u.phone||u.id):'';
     const comp=document.getElementById('umCompany');
-    comp.value = u?u.company:currentUser.company;   // נעול לחברת המנהל — בידוד בין חברות
+    comp.value = u?u.company:adminCompany;   // נעול לחברה שמנהלים — בידוד בין חברות
     comp.readOnly = true;
     document.getElementById('umRole').value   = u?u.role:'';
     document.getElementById('umAdmin').checked= u?!!u.admin:false;
@@ -719,10 +811,14 @@
     const phoneRaw=document.getElementById('umPhone').value.trim();
     const role=document.getElementById('umRole').value.trim();
     const admin=document.getElementById('umAdmin').checked;
-    const company=currentUser.company;            // תמיד חברת המנהל
+    const company=adminCompany;
     if(!name||!phoneRaw){ showMsg('יש למלא לפחות שם ומספר טלפון.'); return; }
     const e164=toE164(phoneRaw);
     if(e164.replace(/\D/g,'').length<11){ showMsg('מספר הטלפון אינו תקין.'); return; }
+    // אכיפת מכסה (מנהל‑על פטור)
+    if(!editingUser && !currentUser.superAdmin && companyQuota!=null && companyUserCount>=companyQuota){
+      showMsg('הגעת למכסת המשתמשים של החברה ('+companyQuota+'). פנה למנהל‑העל.'); return;
+    }
     const data={ name, phone:e164, company, role, admin };
     try{
       if(editingUser && editingUser.id!==e164){ await db.collection('users').doc(editingUser.id).delete(); }
@@ -740,9 +836,59 @@
     catch(err){ console.error(err); showMsg('שגיאה במחיקה: '+(err.code||err.message)); }
   }
 
-  document.getElementById('adminBtn').onclick =()=>{ renderBadges(); renderUserTable(); showView('adminView'); };
-  document.getElementById('adminBack').onclick=()=>{ renderFacadeTable(); showView('menuView'); };
+  document.getElementById('adminBtn').onclick =()=>openAdminFor(currentUser.company);
+  document.getElementById('adminBack').onclick=()=>{
+    if(currentUser.superAdmin){ renderSuperView(); showView('superView'); }
+    else { renderFacadeTable(); showView('menuView'); }
+  };
   document.getElementById('addUserBtn').onclick=()=>openUserForm(null);
+
+  /* ===================== מנהל‑על: חברות ===================== */
+  async function renderSuperView(){
+    const tb=document.getElementById('companyRows');
+    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted);padding:16px">טוען…</td></tr>';
+    try{
+      const [cs,us]=await Promise.all([ db.collection('companies').get(), db.collection('users').get() ]);
+      const counts={}; us.forEach(s=>{ const c=s.data().company; if(c) counts[c]=(counts[c]||0)+1; });
+      tb.innerHTML='';
+      cs.forEach(s=>{
+        const c={ id:s.id, ...s.data() };
+        const nm=c.name||c.id, used=counts[nm]||0;
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td style="font-weight:600">${nm}</td>
+          <td class="fc-count">${used}</td>
+          <td class="fc-count">${c.quota!=null?c.quota:'—'}</td>
+          <td><button class="icon-btn" data-act="users">ניהול משתמשים</button></td>
+          <td><button class="icon-btn" data-act="edit">עריכה</button></td>`;
+        tr.querySelector('[data-act=users]').onclick=()=>openAdminFor(nm);
+        tr.querySelector('[data-act=edit]').onclick=()=>openCompanyForm(c);
+        tb.appendChild(tr);
+      });
+      if(!cs.size) tb.innerHTML='<tr><td colspan="5" style="color:var(--muted);padding:16px">אין חברות — צרו חברה חדשה</td></tr>';
+    }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="5" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
+  }
+  function openCompanyForm(c){
+    editingCompany=c||null;
+    document.getElementById('cmTitle').textContent=c?'עריכת חברה':'חברה חדשה';
+    const nm=document.getElementById('cmName');
+    nm.value=c?(c.name||c.id):''; nm.readOnly=!!c;   // השם משמש כמזהה — לא נערך לאחר יצירה
+    document.getElementById('cmQuota').value=c?(c.quota??10):10;
+    companyModal.classList.add('show'); if(!c) nm.focus();
+  }
+  document.getElementById('addCompanyBtn').onclick=()=>openCompanyForm(null);
+  document.getElementById('cmCancel').onclick=()=>companyModal.classList.remove('show');
+  document.getElementById('cmSave').onclick=async ()=>{
+    const name=document.getElementById('cmName').value.trim();
+    const quota=parseInt(document.getElementById('cmQuota').value,10);
+    if(!name){ showMsg('יש להזין שם חברה.'); return; }
+    if(!(quota>0)){ showMsg('מכסת משתמשים לא תקינה.'); return; }
+    try{
+      await db.collection('companies').doc(name).set({ name, quota }, {merge:true});
+      companyModal.classList.remove('show');
+      showMsg(editingCompany?'החברה עודכנה':'נוצרה חברה: '+name);
+      renderSuperView();
+    }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
+  };
 
   /* ===================== פתיחת חזית ===================== */
   function openFacade(f){
