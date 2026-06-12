@@ -254,10 +254,15 @@
 </div>
 
 <!-- ============ תפריט חזיתות ============ -->
-<div class="view" id="menuView">
+<!-- ============ תפריט פרויקטים (מסך נחיתה) ============ -->
+<div class="view" id="projectsView">
   <header>
-    <div class="title">בחירת חזית<small>תפריט ראשי</small></div>
+    <div class="title">פרויקטים<small>תפריט ראשי</small></div>
     <div class="spacer"></div>
+    <button class="btn" id="manageProjBtn" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h7l2 2h9v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+      פרויקט חדש
+    </button>
     <button class="btn" id="adminBtn" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21v-1a6 6 0 0112 0v1"/><circle cx="18.5" cy="9" r="2.5"/></svg>
       ניהול משתמשים
@@ -266,11 +271,40 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 17l5-5-5-5M21 12H9M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/></svg>
       יציאה
     </button>
+    <div class="userbadge" id="badgeProjects"></div>
+  </header>
+  <div class="menu-body">
+    <div class="menu-inner">
+      <h2>פרויקטים</h2>
+      <p class="sub" id="projectsSub">בחר פרויקט</p>
+      <div class="table-wrap">
+      <table class="facades">
+        <thead><tr><th>פרויקט</th><th></th><th></th></tr></thead>
+        <tbody id="projectRows"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ תפריט חזיתות (בתוך פרויקט) ============ -->
+<div class="view" id="menuView">
+  <header>
+    <button class="btn ghost" id="facadesBack">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      חזרה לפרויקטים
+    </button>
+    <div class="title" id="projectTitle">חזיתות<small>פרויקט</small></div>
+    <div class="spacer"></div>
+    <button class="btn ghost logout-btn" title="יציאה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 17l5-5-5-5M21 12H9M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/></svg>
+      יציאה
+    </button>
     <div class="userbadge" id="badgeMenu"></div>
   </header>
   <div class="menu-body">
     <div class="menu-inner">
-      <h2>חזיתות זמינות</h2>
+      <h2>חזיתות בפרויקט</h2>
       <p class="sub">בחר חזית לפתיחת תכנית הבקרה</p>
       <div class="table-wrap">
       <table class="facades">
@@ -451,7 +485,12 @@
     <div class="fld"><label>מספר טלפון</label><input type="tel" id="umPhone" dir="ltr" placeholder="0500000000" autocomplete="off"></div>
     <div class="fld"><label>חברה</label><input type="text" id="umCompany" autocomplete="off"></div>
     <div class="fld"><label>תפקיד</label><input type="text" id="umRole" autocomplete="off"></div>
-    <label class="chk"><input type="checkbox" id="umAdmin"> הרשאת מנהל (גישה למסך ניהול)</label>
+    <label class="chk"><input type="checkbox" id="umAdmin"> הרשאת מנהל חברה (ניהול משתמשים ופרויקטים)</label>
+    <div class="fld" id="umProjectsWrap" style="margin-top:16px">
+      <label>פרויקטים מורשים</label>
+      <div id="umProjects" style="display:flex;flex-direction:column;gap:7px;max-height:160px;overflow:auto"></div>
+      <div id="umProjectsNote" style="font-size:11px;color:var(--muted);margin-top:6px">מנהל חברה רואה את כל הפרויקטים אוטומטית</div>
+    </div>
     <div class="panel-actions">
       <button class="btn primary" id="umSave">שמירה</button>
       <button class="btn" id="umCancel">ביטול</button>
@@ -469,6 +508,19 @@
     <div class="panel-actions">
       <button class="btn primary" id="cmSave">שמירה</button>
       <button class="btn" id="cmCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ מודאל יצירת/עריכת פרויקט ============ -->
+<div class="modal-bg" id="projectModal">
+  <div class="panel">
+    <div class="panel-head"><h3 id="pmTitle">פרויקט חדש</h3></div>
+    <p class="panel-sub">שם הפרויקט בתוך החברה</p>
+    <div class="fld"><label>שם הפרויקט</label><input type="text" id="pmName" autocomplete="off"></div>
+    <div class="panel-actions">
+      <button class="btn primary" id="pmSave">שמירה</button>
+      <button class="btn" id="pmCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -715,10 +767,13 @@
       const snap=await db.collection('users').doc(user.phoneNumber).get();
       if(!snap.exists){ await auth.signOut(); showMsg('המספר אומת אך אינו מורשה במערכת. פנו למנהל.'); return; }
       currentUser={ id:user.phoneNumber, ...snap.data() };
+      if(!Array.isArray(currentUser.projects)) currentUser.projects=[];
       renderBadges();
       if(currentUser.superAdmin){ renderSuperView(); showView('superView'); return; }   // מנהל‑על
-      document.getElementById('adminBtn').style.display = currentUser.admin ? '' : 'none';
-      renderFacadeTable(); showView('menuView');
+      const isAdmin=!!currentUser.admin;
+      document.getElementById('adminBtn').style.display    = isAdmin ? '' : 'none';
+      document.getElementById('manageProjBtn').style.display= isAdmin ? '' : 'none';
+      renderProjectsView(); showView('projectsView');
     }catch(err){ console.error(err); await auth.signOut(); showMsg('אין הרשאה או שאירעה שגיאה בטעינת הפרופיל.'); }
   }
 
@@ -727,7 +782,7 @@
     if(!currentUser) return;
     const role = currentUser.superAdmin ? 'מנהל‑על' : ((currentUser.company||'')+' · '+(currentUser.role||''));
     const html=`<span class="nm">${currentUser.name}</span><span class="meta">${role}</span>`;
-    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
+    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper','badgeProjects'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
   }
 
   /* ===================== טבלת חזיתות ===================== */
@@ -743,6 +798,74 @@
       tr.onclick=()=>openFacade(f);
       tb.appendChild(tr);
     });
+  }
+
+  /* ===================== פרויקטים ===================== */
+  let currentProject=null, companyProjects=[];
+  const projectModal=document.getElementById('projectModal');
+  let editingProject=null;
+
+  async function loadCompanyProjects(company){
+    const qs=await db.collection('projects').where('company','==',company).get();
+    return qs.docs.map(d=>({ id:d.id, ...d.data() }));
+  }
+  async function renderProjectsView(){
+    const tb=document.getElementById('projectRows');
+    tb.innerHTML='<tr><td colspan="3" style="color:var(--muted);padding:16px">טוען…</td></tr>';
+    try{
+      companyProjects=await loadCompanyProjects(currentUser.company);
+      const isAdmin=!!currentUser.admin;
+      const visible = isAdmin ? companyProjects
+                              : companyProjects.filter(p=>(currentUser.projects||[]).includes(p.id));
+      document.getElementById('projectsSub').textContent = isAdmin
+        ? 'נהל פרויקטים והקצה אותם למשתמשים' : 'הפרויקטים שהוקצו לך';
+      tb.innerHTML='';
+      visible.forEach(p=>{
+        const tr=document.createElement('tr');
+        const actions = isAdmin
+          ? `<td><div class="row-actions"><button class="icon-btn" data-act="edit">עריכה</button><button class="icon-btn del" data-act="del">מחיקה</button></div></td>`
+          : `<td></td>`;
+        tr.innerHTML=`<td><div class="fc-name"><span class="dot"></span>${p.name}</div></td>
+          <td class="fc-go">פתיחה ›</td>${actions}`;
+        tr.querySelector('.fc-name').onclick=()=>openProject(p);
+        tr.querySelector('.fc-go').onclick=()=>openProject(p);
+        if(isAdmin){
+          tr.querySelector('[data-act=edit]').onclick=(e)=>{ e.stopPropagation(); openProjectForm(p); };
+          tr.querySelector('[data-act=del]').onclick=(e)=>{ e.stopPropagation(); deleteProject(p); };
+        }
+        tb.appendChild(tr);
+      });
+      if(!visible.length) tb.innerHTML=`<tr><td colspan="3" style="color:var(--muted);padding:16px">${isAdmin?'אין פרויקטים — צרו פרויקט חדש':'לא הוקצו לך פרויקטים'}</td></tr>`;
+    }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="3" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
+  }
+  function openProject(p){
+    currentProject=p;
+    document.getElementById('projectTitle').innerHTML='חזיתות<small>'+p.name+'</small>';
+    renderBadges(); renderFacadeTable(); showView('menuView');
+  }
+  document.getElementById('facadesBack').onclick=()=>{ renderProjectsView(); showView('projectsView'); };
+
+  function openProjectForm(p){
+    editingProject=p||null;
+    document.getElementById('pmTitle').textContent=p?'עריכת פרויקט':'פרויקט חדש';
+    document.getElementById('pmName').value=p?p.name:'';
+    projectModal.classList.add('show'); document.getElementById('pmName').focus();
+  }
+  document.getElementById('manageProjBtn').onclick=()=>openProjectForm(null);
+  document.getElementById('pmCancel').onclick=()=>projectModal.classList.remove('show');
+  document.getElementById('pmSave').onclick=async ()=>{
+    const name=document.getElementById('pmName').value.trim();
+    if(!name){ showMsg('יש להזין שם פרויקט.'); return; }
+    try{
+      if(editingProject){ await db.collection('projects').doc(editingProject.id).set({ name }, {merge:true}); }
+      else { await db.collection('projects').add({ name, company:currentUser.company, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); }
+      projectModal.classList.remove('show'); showMsg(editingProject?'הפרויקט עודכן':'נוצר פרויקט: '+name);
+      renderProjectsView();
+    }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
+  };
+  async function deleteProject(p){
+    try{ await db.collection('projects').doc(p.id).delete(); renderProjectsView(); showMsg('הפרויקט נמחק: '+p.name); }
+    catch(err){ console.error(err); showMsg('שגיאה במחיקה: '+(err.code||err.message)); }
   }
 
   /* ===================== ניהול משתמשים + חברות (Firestore) ===================== */
@@ -793,7 +916,7 @@
       if(!tb.children.length) tb.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px">אין משתמשים בחברה</td></tr>';
     }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="6" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
   }
-  function openUserForm(u){
+  async function openUserForm(u){
     editingUser=u||null;
     document.getElementById('umTitle').textContent=u?'עריכת משתמש':'משתמש חדש';
     document.getElementById('umName').value   = u?u.name:'';
@@ -803,9 +926,28 @@
     comp.readOnly = true;
     document.getElementById('umRole').value   = u?u.role:'';
     document.getElementById('umAdmin').checked= u?!!u.admin:false;
-    userModal.classList.add('show');
-    document.getElementById('umName').focus();
+    // רשימת פרויקטים להקצאה
+    const wrap=document.getElementById('umProjects'); wrap.innerHTML='טוען…';
+    userModal.classList.add('show'); document.getElementById('umName').focus();
+    try{
+      const projs=await loadCompanyProjects(adminCompany);
+      const assigned = (u && Array.isArray(u.projects)) ? u.projects : [];
+      wrap.innerHTML='';
+      projs.forEach(p=>{
+        const lab=document.createElement('label'); lab.className='chk';
+        lab.innerHTML=`<input type="checkbox" value="${p.id}" ${assigned.includes(p.id)?'checked':''}> ${p.name}`;
+        wrap.appendChild(lab);
+      });
+      if(!projs.length) wrap.innerHTML='<div style="font-size:12px;color:var(--muted)">אין פרויקטים בחברה עדיין — צרו פרויקטים תחילה</div>';
+    }catch(e){ wrap.innerHTML='<div style="font-size:12px;color:var(--red)">שגיאה בטעינת פרויקטים</div>'; }
+    updateUmProjectsVisibility();
   }
+  function updateUmProjectsVisibility(){
+    const isAdmin=document.getElementById('umAdmin').checked;
+    document.getElementById('umProjects').style.display     = isAdmin?'none':'flex';
+    document.getElementById('umProjectsNote').style.display = isAdmin?'block':'none';
+  }
+  document.getElementById('umAdmin').addEventListener('change', updateUmProjectsVisibility);
   document.getElementById('umSave').onclick=async ()=>{
     const name=document.getElementById('umName').value.trim();
     const phoneRaw=document.getElementById('umPhone').value.trim();
@@ -820,6 +962,8 @@
       showMsg('הגעת למכסת המשתמשים של החברה ('+companyQuota+'). פנה למנהל‑העל.'); return;
     }
     const data={ name, phone:e164, company, role, admin };
+    const projects = admin ? [] : Array.from(document.querySelectorAll('#umProjects input:checked')).map(c=>c.value);
+    data.projects = projects;
     try{
       if(editingUser && editingUser.id!==e164){ await db.collection('users').doc(editingUser.id).delete(); }
       await db.collection('users').doc(e164).set(data);   // מזהה המסמך = הטלפון ב‑E.164
@@ -839,7 +983,7 @@
   document.getElementById('adminBtn').onclick =()=>openAdminFor(currentUser.company);
   document.getElementById('adminBack').onclick=()=>{
     if(currentUser.superAdmin){ renderSuperView(); showView('superView'); }
-    else { renderFacadeTable(); showView('menuView'); }
+    else { renderProjectsView(); showView('projectsView'); }
   };
   document.getElementById('addUserBtn').onclick=()=>openUserForm(null);
 
