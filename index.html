@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -395,6 +396,15 @@
     </button>
     <div class="title" id="facadeTitle">חזית<small>תכנית בקרה</small></div>
     <div class="spacer"></div>
+    <input type="file" id="drawingFile" accept="image/*" style="display:none">
+    <button class="btn" id="uploadDrawingBtn" title="העלה שרטוט">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+      העלה שרטוט
+    </button>
+    <button class="btn" id="delDrawingBtn" title="מחק שרטוט">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+      מחק שרטוט
+    </button>
     <button class="btn" id="addElBtn" title="הוסף אלמנט">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 9v6M9 12h6"/></svg>
       הוסף אלמנט
@@ -592,11 +602,12 @@
     measurementId:     "G-GG8EJ51R0Y"
   };
   const FB_CONFIGURED = !String(firebaseConfig.apiKey).startsWith("PASTE");
-  let auth=null, db=null, recaptcha=null, confirmation=null;
+  let auth=null, db=null, storage=null, recaptcha=null, confirmation=null;
   if (FB_CONFIGURED) {
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db   = firebase.firestore();
+    storage = firebase.storage();
     auth.useDeviceLanguage();
   } else {
     setTimeout(()=>showMsg('יש להגדיר את חיבור Firebase (firebaseConfig) בקובץ לפני שימוש.',15000),400);
@@ -1157,7 +1168,8 @@
     // בניית אובייקט חזית עם אלמנטים מאותחלים (מאפייני ריצה) מתוך מסמך ה‑Firestore
     const els=initFacade((f.elements||[]).map(e=>({ ...e })));
     currentFacade={ id:f.id, _docId:f.id, name:f.name, company:f.company,
-                    project:f.project, image:f.image||FACADE_IMG, elements:els };
+                    project:f.project, image:f.imageUrl||FACADE_IMG,
+                    imagePath:f.imagePath||null, elements:els };
     document.getElementById('facadeTitle').innerHTML=`${f.name}<small>תכנית בקרה</small>`;
     showView('appView');
     if(!map){
@@ -1170,6 +1182,42 @@
   }
   document.getElementById('backBtn').onclick=()=>{ renderFacadeTable(); showView('menuView'); };
   document.getElementById('fitBtn').onclick=()=>{ if(bounds) map.fitBounds(bounds); };
+
+  /* ===================== העלאת/מחיקת שרטוט (Firebase Storage) ===================== */
+  document.getElementById('uploadDrawingBtn').onclick=()=>{
+    if(!currentFacade) return;
+    document.getElementById('drawingFile').click();
+  };
+  document.getElementById('drawingFile').onchange=async (e)=>{
+    const file=e.target.files&&e.target.files[0];
+    e.target.value='';                      // איפוס כדי לאפשר בחירת אותו קובץ שוב
+    if(!file||!currentFacade||!storage) return;
+    if(!file.type.startsWith('image/')){ showMsg('יש לבחור קובץ תמונה.'); return; }
+    showMsg('מעלה שרטוט…', 8000);
+    try{
+      const path='drawings/'+currentFacade._docId;
+      const ref=storage.ref().child(path);
+      await ref.put(file);
+      const url=await ref.getDownloadURL();
+      await db.collection('facades').doc(currentFacade._docId).set({ imageUrl:url, imagePath:path }, {merge:true});
+      currentFacade.image=url; currentFacade.imagePath=path;
+      loadFacadeImage(url);                  // טעינה מחדש של המפה עם השרטוט החדש
+      showMsg('השרטוט הועלה בהצלחה');
+    }catch(err){ console.error(err); showMsg('שגיאה בהעלאה: '+(err.code||err.message), 8000); }
+  };
+  document.getElementById('delDrawingBtn').onclick=async ()=>{
+    if(!currentFacade) return;
+    if(!currentFacade.imagePath){ showMsg('אין שרטוט שהועלה לחזית זו (מוצג שרטוט ברירת המחדל).', 6000); return; }
+    showMsg('מוחק שרטוט…', 6000);
+    try{
+      try{ await storage.ref().child(currentFacade.imagePath).delete(); }catch(e){ console.warn(e); }
+      await db.collection('facades').doc(currentFacade._docId).set(
+        { imageUrl:firebase.firestore.FieldValue.delete(), imagePath:firebase.firestore.FieldValue.delete() }, {merge:true});
+      currentFacade.image=FACADE_IMG; currentFacade.imagePath=null;
+      loadFacadeImage(FACADE_IMG);
+      showMsg('השרטוט נמחק');
+    }catch(err){ console.error(err); showMsg('שגיאה במחיקה: '+(err.code||err.message), 8000); }
+  };
 
   /* ===================== הוספת/מחיקת אלמנטים על השרטוט ===================== */
   const elModal=document.getElementById('elModal');
