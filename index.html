@@ -257,6 +257,10 @@
 <!-- ============ תפריט פרויקטים (מסך נחיתה) ============ -->
 <div class="view" id="projectsView">
   <header>
+    <button class="btn ghost" id="superBackBtn" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      חזרה לחברות
+    </button>
     <div class="title">פרויקטים<small>תפריט ראשי</small></div>
     <div class="spacer"></div>
     <button class="btn" id="manageProjBtn" style="display:none">
@@ -374,7 +378,7 @@
       <p class="sub">יצירת חברות, הקצאת מכסת משתמשים, וכניסה לניהול המשתמשים של כל חברה</p>
       <div class="table-wrap">
       <table class="facades">
-        <thead><tr><th>חברה</th><th>משתמשים</th><th>מכסה</th><th></th><th></th></tr></thead>
+        <thead><tr><th>חברה</th><th>משתמשים</th><th>מכסה</th><th></th><th></th><th></th></tr></thead>
         <tbody id="companyRows"></tbody>
       </table>
       </div>
@@ -835,8 +839,9 @@
   let editingFacade=null, projectFacades=[];
 
   async function loadProjectFacades(projectId){
-    const qs=await db.collection('facades').where('project','==',projectId).get();
-    return qs.docs.map(d=>({ id:d.id, ...d.data() }));
+    // סינון לפי חברה בשאילתה (תואם לכלל ההרשאה); סינון הפרויקט בצד הלקוח — ללא צורך באינדקס מורכב
+    const qs=await db.collection('facades').where('company','==',workCompany()).get();
+    return qs.docs.map(d=>({ id:d.id, ...d.data() })).filter(f=>f.project===projectId);
   }
   async function renderFacadeTable(){
     const tb=document.getElementById('facadeRows');
@@ -876,7 +881,7 @@
     if(!name){ showMsg('יש להזין שם חזית.'); return; }
     try{
       if(editingFacade){ await db.collection('facades').doc(editingFacade.id).set({ name }, {merge:true}); }
-      else { await db.collection('facades').add({ name, project:currentProject.id, company:currentUser.company, elements:[] }); }
+      else { await db.collection('facades').add({ name, project:currentProject.id, company:workCompany(), elements:[] }); }
       facadeModal.classList.remove('show'); showMsg(editingFacade?'שם החזית עודכן':'נוצרה חזית: '+name);
       renderFacadeTable();
     }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
@@ -896,6 +901,22 @@
 
   /* ===================== פרויקטים ===================== */
   let currentProject=null, companyProjects=[];
+  let superCompany=null;   // החברה שמנהל‑העל "נכנס" אליה לצפייה בפרויקטים/חזיתות
+  // החברה הפעילה לצורכי פרויקטים/חזיתות: עבור מנהל‑על — החברה שאימץ; אחרת — חברת המשתמש
+  function workCompany(){ return currentUser && currentUser.superAdmin ? superCompany : (currentUser&&currentUser.company); }
+  // מנהל‑על נכנס לפרויקטים של חברה
+  function openCompanyProjects(name){
+    superCompany=name;
+    document.getElementById('superBackBtn').style.display='';
+    document.getElementById('manageProjBtn').style.display='';   // מנהל‑על יכול ליצור פרויקטים
+    document.getElementById('adminBtn').style.display='none';
+    renderProjectsView(); showView('projectsView');
+  }
+  function superBackToCompanies(){
+    superCompany=null;
+    document.getElementById('superBackBtn').style.display='none';
+    renderSuperView(); showView('superView');
+  }
   const projectModal=document.getElementById('projectModal');
   let editingProject=null;
 
@@ -907,12 +928,12 @@
     const tb=document.getElementById('projectRows');
     tb.innerHTML='<tr><td colspan="3" style="color:var(--muted);padding:16px">טוען…</td></tr>';
     try{
-      companyProjects=await loadCompanyProjects(currentUser.company);
-      const isAdmin=!!currentUser.admin;
+      companyProjects=await loadCompanyProjects(workCompany());
+      const isAdmin=!!currentUser.admin || !!currentUser.superAdmin;
       const visible = isAdmin ? companyProjects
                               : companyProjects.filter(p=>(currentUser.projects||[]).includes(p.id));
       document.getElementById('projectsSub').textContent = isAdmin
-        ? 'נהל פרויקטים והקצה אותם למשתמשים' : 'הפרויקטים שהוקצו לך';
+        ? ('נהל פרויקטים והקצה אותם למשתמשים' + (currentUser.superAdmin?(' · '+workCompany()):'')) : 'הפרויקטים שהוקצו לך';
       tb.innerHTML='';
       visible.forEach(p=>{
         const tr=document.createElement('tr');
@@ -938,6 +959,7 @@
     renderBadges(); renderFacadeTable(); showView('menuView');
   }
   document.getElementById('facadesBack').onclick=()=>{ renderProjectsView(); showView('projectsView'); };
+  document.getElementById('superBackBtn').onclick=()=>superBackToCompanies();
 
   function openProjectForm(p){
     editingProject=p||null;
@@ -952,7 +974,7 @@
     if(!name){ showMsg('יש להזין שם פרויקט.'); return; }
     try{
       if(editingProject){ await db.collection('projects').doc(editingProject.id).set({ name }, {merge:true}); }
-      else { await db.collection('projects').add({ name, company:currentUser.company, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); }
+      else { await db.collection('projects').add({ name, company:workCompany(), createdAt:firebase.firestore.FieldValue.serverTimestamp() }); }
       projectModal.classList.remove('show'); showMsg(editingProject?'הפרויקט עודכן':'נוצר פרויקט: '+name);
       renderProjectsView();
     }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
@@ -1084,7 +1106,7 @@
   /* ===================== מנהל‑על: חברות ===================== */
   async function renderSuperView(){
     const tb=document.getElementById('companyRows');
-    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted);padding:16px">טוען…</td></tr>';
+    tb.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px">טוען…</td></tr>';
     try{
       const [cs,us]=await Promise.all([ db.collection('companies').get(), db.collection('users').get() ]);
       const counts={}; us.forEach(s=>{ const c=s.data().company; if(c) counts[c]=(counts[c]||0)+1; });
@@ -1096,14 +1118,16 @@
         tr.innerHTML=`<td style="font-weight:600">${nm}</td>
           <td class="fc-count">${used}</td>
           <td class="fc-count">${c.quota!=null?c.quota:'—'}</td>
+          <td><button class="icon-btn" data-act="projects">פרויקטים</button></td>
           <td><button class="icon-btn" data-act="users">ניהול משתמשים</button></td>
           <td><button class="icon-btn" data-act="edit">עריכה</button></td>`;
+        tr.querySelector('[data-act=projects]').onclick=()=>openCompanyProjects(nm);
         tr.querySelector('[data-act=users]').onclick=()=>openAdminFor(nm);
         tr.querySelector('[data-act=edit]').onclick=()=>openCompanyForm(c);
         tb.appendChild(tr);
       });
-      if(!cs.size) tb.innerHTML='<tr><td colspan="5" style="color:var(--muted);padding:16px">אין חברות — צרו חברה חדשה</td></tr>';
-    }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="5" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
+      if(!cs.size) tb.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px">אין חברות — צרו חברה חדשה</td></tr>';
+    }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="6" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
   }
   function openCompanyForm(c){
     editingCompany=c||null;
@@ -1283,7 +1307,7 @@
     const c=counts();
     const rows=[
       ['דוח חתך', currentFacade.name],
-      ['מפקח', currentUser.name+' · '+currentUser.company],
+      ['מפקח', currentUser.name+' · '+(workCompany()||'')],
       ['מותקנים', c.g], ['תקלות', c.r], ['לא טופלו', c.p], [],
       ['מזהה','סוג','סטטוס','קבלן','קיבוע','איטום','חיפוי','QA','סוג תקלה','הערה']
     ];
