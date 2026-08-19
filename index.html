@@ -139,6 +139,9 @@
   .el-tip{background:rgba(10,22,32,.85);border:1px solid var(--line);color:var(--cyan);
     font-family:var(--mono);font-size:10px;border-radius:4px;padding:2px 6px;box-shadow:none}
   .el-tip::before{display:none}
+  .rz-handle{background:#ffd23f;border:2px solid #0a1620;border-radius:3px;
+    box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer}
+  .rz-move{background:var(--cyan);border-radius:50%}
 
   /* ===== חלונות מודאליים ===== */
   .modal-bg{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;
@@ -408,6 +411,10 @@
     <button class="btn" id="addElBtn" title="הוסף אלמנט">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 9v6M9 12h6"/></svg>
       הוסף אלמנט
+    </button>
+    <button class="btn primary" id="editDoneBtn" style="display:none" title="סיום עריכה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
+      סיום עריכה
     </button>
     <button class="btn primary" id="reportBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z"/></svg>
@@ -696,7 +703,10 @@
         <button class="ep-btn install" onclick="openInstall('${el.id}')">דיווח התקנה</button>
         <button class="ep-btn fault" onclick="openFault('${el.id}')">דיווח תקלה</button>
       </div>
-      <div class="ep-actions"><button class="ep-btn" style="flex:1;opacity:.8" onclick="deleteEl('${el.id}')">מחק אלמנט</button></div>
+      <div class="ep-actions">
+        <button class="ep-btn" style="flex:1" onclick="resizeEl('${el.id}')">שנה גודל / הזז</button>
+        <button class="ep-btn" style="flex:1;opacity:.8" onclick="deleteEl('${el.id}')">מחק אלמנט</button>
+      </div>
       </div>`;
   }
   function recolor(el){
@@ -1178,6 +1188,7 @@
       attachPlaceHandler();
     }
     placeMode=false; document.getElementById('addElBtn').classList.remove('primary');
+    editing=null; document.getElementById('editDoneBtn').style.display='none';
     setTimeout(()=>{ map.invalidateSize(); loadFacadeImage(currentFacade.image); },60);
   }
   document.getElementById('backBtn').onclick=()=>{ renderFacadeTable(); showView('menuView'); };
@@ -1269,6 +1280,49 @@
     try{ await db.collection('inspections').doc(inspId(currentFacade.id,id)).delete(); }catch(e){}
     showMsg('האלמנט נמחק: '+id);
   };
+
+  /* ===================== שינוי גודל / הזזת אלמנט ===================== */
+  let editing=null, hA=null, hB=null, hC=null;
+  function mkHandle(latlng, cls){
+    return L.marker(latlng, { draggable:true, zIndexOffset:1000,
+      icon:L.divIcon({className:'', html:`<div class="${cls}" style="width:14px;height:14px"></div>`,
+      iconSize:[14,14], iconAnchor:[7,7]}) });
+  }
+  function ll(m){ const p=m.getLatLng(); return { x:p.lng, y:imgH - p.lat }; }
+  function elBox(el){ const cx=el.rx*imgW, cy=el.ry*imgH, w=el.rw*imgW, h=el.rh*imgH;
+    return { left:cx-w/2, right:cx+w/2, top:cy-h/2, bottom:cy+h/2, cx, cy, w, h }; }
+  function applyBox(el, left,right,top,bottom){
+    left=Math.max(0,left); top=Math.max(0,top); right=Math.min(imgW,right); bottom=Math.min(imgH,bottom);
+    const w=Math.max(8,right-left), h=Math.max(8,bottom-top);
+    el.rw=w/imgW; el.rh=h/imgH; el.rx=((left+right)/2)/imgW; el.ry=((top+bottom)/2)/imgH;
+  }
+  function liveRedraw(){ if(editing&&editing._poly) editing._poly.setLatLngs(elPoints(editing).map(toLatLng)); }
+  function reposCenter(){ const b=elBox(editing); hC.setLatLng(toLatLng([b.cx,b.cy])); }
+  function reposCorners(){ const b=elBox(editing); hA.setLatLng(toLatLng([b.left,b.top])); hB.setLatLng(toLatLng([b.right,b.bottom])); }
+  function clearHandles(){ [hA,hB,hC].forEach(m=>{ if(m) try{ map.removeLayer(m); }catch(e){} }); hA=hB=hC=null; }
+  function startEditEl(el){
+    if(!bounds||!el) return;
+    placeMode=false; document.getElementById('addElBtn').classList.remove('primary');
+    map.closePopup(); editing=el;
+    document.getElementById('editDoneBtn').style.display='';
+    const b=elBox(el);
+    hA=mkHandle(toLatLng([b.left,b.top]),'rz-handle');
+    hB=mkHandle(toLatLng([b.right,b.bottom]),'rz-handle');
+    hC=mkHandle(toLatLng([b.cx,b.cy]),'rz-move');
+    [hA,hB,hC].forEach(m=>m.addTo(map));
+    hA.on('drag',()=>{ const a=ll(hA), c=ll(hB); applyBox(editing,a.x,c.x,a.y,c.y); liveRedraw(); reposCenter(); });
+    hB.on('drag',()=>{ const a=ll(hA), c=ll(hB); applyBox(editing,a.x,c.x,a.y,c.y); liveRedraw(); reposCenter(); });
+    hC.on('drag',()=>{ const p=ll(hC), bb=elBox(editing), w=bb.w, h=bb.h;
+      applyBox(editing, p.x-w/2, p.x+w/2, p.y-h/2, p.y+h/2); liveRedraw(); reposCorners(); });
+    showMsg('גרור את הפינות לשינוי גודל, ואת המרכז להזזה. בסיום — "סיום עריכה".', 6000);
+  }
+  async function finishEdit(){
+    clearHandles();
+    document.getElementById('editDoneBtn').style.display='none';
+    if(editing){ editing=null; drawElements(); await saveFacadeElements(); showMsg('הגודל נשמר'); }
+  }
+  document.getElementById('editDoneBtn').onclick=finishEdit;
+  window.resizeEl=function(id){ startEditEl(findEl(id)); };
 
   /* ===================== מודאל התקנה ===================== */
   const installModal=document.getElementById('installModal');
