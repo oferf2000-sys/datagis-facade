@@ -328,6 +328,39 @@
   </div>
 </div>
 
+<!-- ============ תפריט שרטוטים (בתוך חזית) ============ -->
+<div class="view" id="drawingsView">
+  <header>
+    <button class="btn ghost" id="drawingsBack">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      חזרה לחזיתות
+    </button>
+    <div class="title" id="drawingsTitle">שרטוטים<small>חזית</small></div>
+    <div class="spacer"></div>
+    <button class="btn" id="addDrawingBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      שרטוט חדש
+    </button>
+    <button class="btn ghost logout-btn" title="יציאה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 17l5-5-5-5M21 12H9M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/></svg>
+      יציאה
+    </button>
+    <div class="userbadge" id="badgeDrawings"></div>
+  </header>
+  <div class="menu-body">
+    <div class="menu-inner">
+      <h2>שרטוטים בחזית</h2>
+      <p class="sub">כל שרטוט מכיל תכנית ואלמנטים משלו</p>
+      <div class="table-wrap">
+      <table class="facades">
+        <thead><tr><th>שרטוט</th><th>אלמנטים</th><th></th></tr></thead>
+        <tbody id="drawingRows"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ ניהול משתמשים ============ -->
 <div class="view" id="adminView">
   <header>
@@ -563,6 +596,19 @@
     <div class="panel-actions">
       <button class="btn primary" id="fcmSave">שמירה</button>
       <button class="btn" id="fcmCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ מודאל יצירת/עריכת שרטוט ============ -->
+<div class="modal-bg" id="drawingModal">
+  <div class="panel">
+    <div class="panel-head"><h3 id="dmTitle">שרטוט חדש</h3></div>
+    <p class="panel-sub">שם השרטוט (למשל: תכנית חזית, חתך, פרט)</p>
+    <div class="fld"><label>שם השרטוט</label><input type="text" id="dmName" autocomplete="off"></div>
+    <div class="panel-actions">
+      <button class="btn primary" id="dmSave">שמירה</button>
+      <button class="btn" id="dmCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -851,7 +897,7 @@
     if(!currentUser) return;
     const role = currentUser.superAdmin ? 'מנהל‑על' : ((currentUser.company||'')+' · '+(currentUser.role||''));
     const html=`<span class="nm">${currentUser.name}</span><span class="meta">${role}</span>`;
-    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper','badgeProjects'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
+    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper','badgeProjects','badgeDrawings'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
   }
 
   /* ===================== טבלת חזיתות ===================== */
@@ -880,8 +926,8 @@
             <button class="icon-btn" data-act="edit">שם</button>
             <button class="icon-btn del" data-act="del">מחיקה</button>
           </div></td>`;
-        tr.querySelector('.fc-name').onclick=()=>openFacade(f);
-        tr.querySelector('[data-act=open]').onclick=()=>openFacade(f);
+        tr.querySelector('.fc-name').onclick=()=>openFacadeDrawings(f);
+        tr.querySelector('[data-act=open]').onclick=()=>openFacadeDrawings(f);
         tr.querySelector('[data-act=edit]').onclick=(e)=>{ e.stopPropagation(); openFacadeForm(f); };
         tr.querySelector('[data-act=del]').onclick=(e)=>{ e.stopPropagation(); deleteFacade(f); };
         tb.appendChild(tr);
@@ -911,12 +957,12 @@
     try{ await db.collection('facades').doc(f.id).delete(); renderFacadeTable(); showMsg('החזית נמחקה: '+f.name); }
     catch(err){ console.error(err); showMsg('שגיאה במחיקה: '+(err.code||err.message)); }
   }
-  // שמירת מערך האלמנטים של החזית הנוכחית (ללא מאפייני ריצה)
+  // שמירת מערך האלמנטים של השרטוט הנוכחי (ללא מאפייני ריצה)
   async function saveFacadeElements(){
     if(!currentFacade||!currentFacade._docId) return;
     const clean=currentFacade.elements.map(e=>({ id:e.id, type:e.type, name:e.name||e.type,
       rx:e.rx, ry:e.ry, rw:e.rw, rh:e.rh, contractor:e.contractor||DEFAULT_CONTRACTOR }));
-    try{ await db.collection('facades').doc(currentFacade._docId).set({ elements:clean }, {merge:true}); }
+    try{ await db.collection('drawings').doc(currentFacade._docId).set({ elements:clean }, {merge:true}); }
     catch(err){ console.error(err); showMsg('שגיאה בשמירת אלמנטים: '+(err.code||err.message)); }
   }
 
@@ -1174,13 +1220,99 @@
   };
 
   /* ===================== פתיחת חזית ===================== */
-  function openFacade(f){
-    // בניית אובייקט חזית עם אלמנטים מאותחלים (מאפייני ריצה) מתוך מסמך ה‑Firestore
-    const els=initFacade((f.elements||[]).map(e=>({ ...e })));
-    currentFacade={ id:f.id, _docId:f.id, name:f.name, company:f.company,
-                    project:f.project, image:f.imageUrl||FACADE_IMG,
-                    imagePath:f.imagePath||null, elements:els };
-    document.getElementById('facadeTitle').innerHTML=`${f.name}<small>תכנית בקרה</small>`;
+  /* ===================== שרטוטים בתוך חזית ===================== */
+  let currentFacadeMeta=null;   // {id,name,company,project} של החזית הפעילה
+  let facadeDrawings=[], directDrawing=false;
+
+  async function loadFacadeDrawings(facadeId){
+    const qs=await db.collection('drawings').where('company','==',workCompany()).get();
+    return qs.docs.map(d=>({ id:d.id, ...d.data() })).filter(d=>d.facade===facadeId);
+  }
+  // כניסה לחזית: טוען שרטוטים, ממיר חזית ישנה, ומחליט תצוגה ישירה מול רשימה
+  async function openFacadeDrawings(f){
+    currentFacadeMeta={ id:f.id, name:f.name, company:f.company||workCompany(), project:f.project };
+    try{
+      facadeDrawings=await loadFacadeDrawings(f.id);
+      // המרת חזית ישנה: אם אין שרטוטים אך יש נתונים ישנים על החזית — צור שרטוט ראשון
+      if(!facadeDrawings.length){
+        const legacyEls=Array.isArray(f.elements)?f.elements:[];
+        if(legacyEls.length || f.imageUrl){
+          const ref=await db.collection('drawings').add({
+            facade:f.id, project:currentFacadeMeta.project, company:currentFacadeMeta.company,
+            name:'שרטוט 1', imageUrl:f.imageUrl||null, imagePath:f.imagePath||null, elements:legacyEls });
+          facadeDrawings=[{ id:ref.id, facade:f.id, project:currentFacadeMeta.project, company:currentFacadeMeta.company,
+            name:'שרטוט 1', imageUrl:f.imageUrl||null, imagePath:f.imagePath||null, elements:legacyEls }];
+        }
+      }
+    }catch(err){ console.error(err); showMsg('שגיאה בטעינת שרטוטים: '+(err.code||err.message)); return; }
+
+    if(facadeDrawings.length===1){ directDrawing=true; openDrawing(facadeDrawings[0]); }
+    else { directDrawing=false; renderDrawingsView(); showView('drawingsView'); }
+  }
+  function renderDrawingsView(){
+    document.getElementById('drawingsTitle').innerHTML='שרטוטים<small>'+currentFacadeMeta.name+'</small>';
+    renderBadges();
+    const tb=document.getElementById('drawingRows'); tb.innerHTML='';
+    facadeDrawings.forEach(d=>{
+      const n=(d.elements&&d.elements.length)||0;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><div class="fc-name"><span class="dot"></span>${d.name}</div></td>
+        <td class="fc-count">${n} אלמנטים</td>
+        <td><div class="row-actions">
+          <button class="icon-btn" data-act="open">פתיחה ›</button>
+          <button class="icon-btn" data-act="edit">שם</button>
+          <button class="icon-btn del" data-act="del">מחיקה</button>
+        </div></td>`;
+      tr.querySelector('.fc-name').onclick=()=>openDrawing(d);
+      tr.querySelector('[data-act=open]').onclick=()=>openDrawing(d);
+      tr.querySelector('[data-act=edit]').onclick=(e)=>{ e.stopPropagation(); openDrawingForm(d); };
+      tr.querySelector('[data-act=del]').onclick=(e)=>{ e.stopPropagation(); deleteDrawing(d); };
+      tb.appendChild(tr);
+    });
+    if(!facadeDrawings.length) tb.innerHTML='<tr><td colspan="3" style="color:var(--muted);padding:16px">אין שרטוטים — הוסיפו שרטוט חדש</td></tr>';
+  }
+  document.getElementById('drawingsBack').onclick=()=>{ renderFacadeTable(); showView('menuView'); };
+
+  // מודאל שרטוט
+  const drawingModal=document.getElementById('drawingModal');
+  let editingDrawing=null;
+  function openDrawingForm(d){
+    editingDrawing=d||null;
+    document.getElementById('dmTitle').textContent=d?'שינוי שם שרטוט':'שרטוט חדש';
+    document.getElementById('dmName').value=d?d.name:'';
+    drawingModal.classList.add('show'); document.getElementById('dmName').focus();
+  }
+  document.getElementById('addDrawingBtn').onclick=()=>openDrawingForm(null);
+  document.getElementById('dmCancel').onclick=()=>drawingModal.classList.remove('show');
+  document.getElementById('dmSave').onclick=async ()=>{
+    const name=document.getElementById('dmName').value.trim();
+    if(!name){ showMsg('יש להזין שם שרטוט.'); return; }
+    try{
+      if(editingDrawing){ await db.collection('drawings').doc(editingDrawing.id).set({ name }, {merge:true}); }
+      else { await db.collection('drawings').add({ facade:currentFacadeMeta.id, project:currentFacadeMeta.project,
+             company:currentFacadeMeta.company, name, imageUrl:null, imagePath:null, elements:[] }); }
+      drawingModal.classList.remove('show'); showMsg(editingDrawing?'שם השרטוט עודכן':'נוצר שרטוט: '+name);
+      facadeDrawings=await loadFacadeDrawings(currentFacadeMeta.id);
+      renderDrawingsView();
+    }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
+  };
+  async function deleteDrawing(d){
+    try{
+      if(d.imagePath){ try{ await storage.ref().child(d.imagePath).delete(); }catch(e){} }
+      await db.collection('drawings').doc(d.id).delete();
+      facadeDrawings=await loadFacadeDrawings(currentFacadeMeta.id);
+      renderDrawingsView(); showMsg('השרטוט נמחק: '+d.name);
+    }catch(err){ console.error(err); showMsg('שגיאה במחיקה: '+(err.code||err.message)); }
+  }
+
+  // פתיחת שרטוט במפה — השרטוט משמש כיחידת התצוגה (תמונה + אלמנטים)
+  function openDrawing(d){
+    const els=initFacade((d.elements||[]).map(e=>({ ...e })));
+    currentFacade={ id:d.id, _docId:d.id, name:d.name,
+                    company:currentFacadeMeta.company, project:currentFacadeMeta.project,
+                    facadeId:currentFacadeMeta.id, facadeName:currentFacadeMeta.name,
+                    image:d.imageUrl||FACADE_IMG, imagePath:d.imagePath||null, elements:els };
+    document.getElementById('facadeTitle').innerHTML=`${currentFacadeMeta.name}<small>${d.name}</small>`;
     showView('appView');
     if(!map){
       map=L.map('map',{crs:L.CRS.Simple,minZoom:-8,maxZoom:6,zoomSnap:0,zoomDelta:.6,
@@ -1191,7 +1323,11 @@
     editing=null; document.getElementById('editDoneBtn').style.display='none';
     setTimeout(()=>{ map.invalidateSize(); loadFacadeImage(currentFacade.image); },60);
   }
-  document.getElementById('backBtn').onclick=()=>{ renderFacadeTable(); showView('menuView'); };
+  // חזרה מהמפה: אם נכנסנו ישירות לשרטוט יחיד → לחזיתות; אחרת → רשימת השרטוטים
+  document.getElementById('backBtn').onclick=()=>{
+    if(directDrawing){ renderFacadeTable(); showView('menuView'); }
+    else { renderDrawingsView(); showView('drawingsView'); }
+  };
   document.getElementById('fitBtn').onclick=()=>{ if(bounds) map.fitBounds(bounds); };
 
   /* ===================== העלאת/מחיקת שרטוט (Firebase Storage) ===================== */
@@ -1206,11 +1342,13 @@
     if(!file.type.startsWith('image/')){ showMsg('יש לבחור קובץ תמונה.'); return; }
     showMsg('מעלה שרטוט…', 8000);
     try{
-      const path='drawings/'+currentFacade._docId;
+      const path='drawings/'+currentFacade._docId+'_'+Date.now();
       const ref=storage.ref().child(path);
       await ref.put(file);
       const url=await ref.getDownloadURL();
-      await db.collection('facades').doc(currentFacade._docId).set({ imageUrl:url, imagePath:path }, {merge:true});
+      // מחיקת קובץ קודם אם היה
+      if(currentFacade.imagePath){ try{ await storage.ref().child(currentFacade.imagePath).delete(); }catch(e){} }
+      await db.collection('drawings').doc(currentFacade._docId).set({ imageUrl:url, imagePath:path }, {merge:true});
       currentFacade.image=url; currentFacade.imagePath=path;
       loadFacadeImage(url);                  // טעינה מחדש של המפה עם השרטוט החדש
       showMsg('השרטוט הועלה בהצלחה');
@@ -1218,11 +1356,11 @@
   };
   document.getElementById('delDrawingBtn').onclick=async ()=>{
     if(!currentFacade) return;
-    if(!currentFacade.imagePath){ showMsg('אין שרטוט שהועלה לחזית זו (מוצג שרטוט ברירת המחדל).', 6000); return; }
+    if(!currentFacade.imagePath){ showMsg('אין שרטוט שהועלה (מוצג שרטוט ברירת המחדל).', 6000); return; }
     showMsg('מוחק שרטוט…', 6000);
     try{
       try{ await storage.ref().child(currentFacade.imagePath).delete(); }catch(e){ console.warn(e); }
-      await db.collection('facades').doc(currentFacade._docId).set(
+      await db.collection('drawings').doc(currentFacade._docId).set(
         { imageUrl:firebase.firestore.FieldValue.delete(), imagePath:firebase.firestore.FieldValue.delete() }, {merge:true});
       currentFacade.image=FACADE_IMG; currentFacade.imagePath=null;
       loadFacadeImage(FACADE_IMG);
