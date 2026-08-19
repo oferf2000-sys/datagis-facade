@@ -432,6 +432,10 @@
     </button>
     <div class="title" id="facadeTitle">חזית<small>תכנית בקרה</small></div>
     <div class="spacer"></div>
+    <button class="btn" id="drawingsListBtn" title="שרטוטי החזית">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      שרטוטי החזית
+    </button>
     <input type="file" id="drawingFile" accept="image/*" style="display:none">
     <button class="btn" id="uploadDrawingBtn" title="העלה שרטוט">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
@@ -1246,8 +1250,7 @@
       }
     }catch(err){ console.error(err); showMsg('שגיאה בטעינת שרטוטים: '+(err.code||err.message)); return; }
 
-    if(facadeDrawings.length===1){ directDrawing=true; openDrawing(facadeDrawings[0]); }
-    else { directDrawing=false; renderDrawingsView(); showView('drawingsView'); }
+    directDrawing=false; renderDrawingsView(); showView('drawingsView');   // תמיד מציג את רשימת השרטוטים
   }
   function renderDrawingsView(){
     document.getElementById('drawingsTitle').innerHTML='שרטוטים<small>'+currentFacadeMeta.name+'</small>';
@@ -1329,6 +1332,13 @@
     else { renderDrawingsView(); showView('drawingsView'); }
   };
   document.getElementById('fitBtn').onclick=()=>{ if(bounds) map.fitBounds(bounds); };
+  // מעבר לרשימת שרטוטי החזית (זמין גם כשנכנסים ישירות לשרטוט יחיד)
+  document.getElementById('drawingsListBtn').onclick=async ()=>{
+    if(!currentFacadeMeta) return;
+    directDrawing=false;
+    try{ facadeDrawings=await loadFacadeDrawings(currentFacadeMeta.id); }catch(e){ console.error(e); }
+    renderDrawingsView(); showView('drawingsView');
+  };
 
   /* ===================== העלאת/מחיקת שרטוט (Firebase Storage) ===================== */
   document.getElementById('uploadDrawingBtn').onclick=()=>{
