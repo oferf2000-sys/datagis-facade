@@ -1291,12 +1291,21 @@
     const name=document.getElementById('dmName').value.trim();
     if(!name){ showMsg('יש להזין שם שרטוט.'); return; }
     try{
-      if(editingDrawing){ await db.collection('drawings').doc(editingDrawing.id).set({ name }, {merge:true}); }
-      else { await db.collection('drawings').add({ facade:currentFacadeMeta.id, project:currentFacadeMeta.project,
-             company:currentFacadeMeta.company, name, imageUrl:null, imagePath:null, elements:[] }); }
-      drawingModal.classList.remove('show'); showMsg(editingDrawing?'שם השרטוט עודכן':'נוצר שרטוט: '+name);
-      facadeDrawings=await loadFacadeDrawings(currentFacadeMeta.id);
-      renderDrawingsView();
+      if(editingDrawing){
+        await db.collection('drawings').doc(editingDrawing.id).set({ name }, {merge:true});
+        drawingModal.classList.remove('show'); showMsg('שם השרטוט עודכן');
+        facadeDrawings=await loadFacadeDrawings(currentFacadeMeta.id);
+        renderDrawingsView();
+      } else {
+        const ref=await db.collection('drawings').add({ facade:currentFacadeMeta.id, project:currentFacadeMeta.project,
+             company:currentFacadeMeta.company, name, imageUrl:null, imagePath:null, elements:[] });
+        drawingModal.classList.remove('show'); showMsg('נוצר שרטוט: '+name+' — כעת ניתן להעלות לו תכנית ולמקם אלמנטים');
+        facadeDrawings=await loadFacadeDrawings(currentFacadeMeta.id);
+        const created=facadeDrawings.find(x=>x.id===ref.id) ||
+          { id:ref.id, facade:currentFacadeMeta.id, project:currentFacadeMeta.project,
+            company:currentFacadeMeta.company, name, imageUrl:null, imagePath:null, elements:[] };
+        openDrawing(created);   // פתיחה ישירה כדי להעלות תכנית ולמקם אלמנטים
+      }
     }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
   };
   async function deleteDrawing(d){
