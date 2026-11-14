@@ -236,24 +236,19 @@
       <div><h1>בקרת חזיתות</h1><small>Facade QA · Field</small></div>
     </div>
 
-    <div class="login-step active" id="stepPhone">
-      <label>מספר טלפון
-        <input type="tel" id="phone" inputmode="tel" placeholder="050-0000000" dir="ltr">
-      </label>
-      <div class="login-hint">הכניסה באמצעות אימות טלפון (SMS).<br>רק מספרים מורשים שהוגדרו במסך הניהול יכולים להיכנס.</div>
-      <button class="btn primary" id="sendOtp">שליחת קוד</button>
-      <button class="btn ghost" id="haveCode" style="width:100%;justify-content:center;margin-top:9px">כבר קיבלתי קוד ›</button>
-    </div>
+    <div id="loginCompanyBrand" class="login-hint" style="display:none;font-weight:600;color:var(--cyan)"></div>
 
-    <div class="login-step" id="stepOtp">
-      <div class="otp-note">הזן את הקוד שנשלח אליך ב‑SMS</div>
-      <label>קוד אימות (OTP)
-        <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="______" dir="ltr">
+    <div class="login-step active" id="stepEmail">
+      <label>אימייל
+        <input type="email" id="email" inputmode="email" autocomplete="username" placeholder="name@company.com" dir="ltr">
       </label>
-      <button class="btn primary" id="verifyOtp">כניסה למערכת</button>
-      <button class="btn ghost" id="backToPhone" style="width:100%;justify-content:center;margin-top:9px">‹ חזרה / שליחה מחדש</button>
+      <label>סיסמה
+        <input type="password" id="password" autocomplete="current-password" placeholder="••••••••" dir="ltr">
+      </label>
+      <div class="login-hint">הכניסה באמצעות אימייל וסיסמה. רק משתמשים מורשים שהוזמנו למערכת יכולים להיכנס.</div>
+      <button class="btn primary" id="loginBtn">כניסה למערכת</button>
+      <button class="btn ghost" id="forgotBtn" style="width:100%;justify-content:center;margin-top:9px">שכחתי סיסמה / הגדרת סיסמה ראשונה</button>
     </div>
-    <div id="recaptcha-container"></div>
   </div>
 </div>
 
@@ -779,7 +774,22 @@
   }
   function loadFacadeImage(src){
     const probe=new Image();
+    let done=false;
+    // נפילה חזרה לשרטוט ברירת המחדל כשתמונה שהועלתה אינה נטענת — כדי שלא יישאר מסך ריק
+    const useDefault=(reason)=>{
+      if(done) return; done=true;
+      console.warn('טעינת שרטוט נכשלה:', reason, src);
+      if(src!==FACADE_IMG){
+        showMsg('השרטוט שהועלה לא נטען — ייתכן שהקובץ חסר או שאחסון הקבצים (Storage) אינו פעיל. מוצג שרטוט ברירת המחדל; ניתן להעלות שרטוט מחדש.', 10000);
+        loadFacadeImage(FACADE_IMG);
+      } else {
+        showMsg('שגיאה בטעינת תמונת ברירת המחדל.', 6000);
+      }
+    };
     probe.onload=()=>{
+      if(done) return;
+      if(!probe.naturalWidth || !probe.naturalHeight){ useDefault('מידות אפס'); return; }
+      done=true;
       imgW=probe.naturalWidth; imgH=probe.naturalHeight;
       bounds=[[0,0],[imgH,imgW]];
       if(overlay) overlay.remove();
@@ -788,6 +798,7 @@
       drawElements();
       loadFacadeState();          // טעינת מצב הבדיקות מהענן ומיזוג לתוך האלמנטים
     };
+    probe.onerror=()=>useDefault('onerror');
     probe.src=src;
   }
 
@@ -822,70 +833,61 @@
 
   function logout(){
     if(FB_CONFIGURED && auth) auth.signOut().catch(()=>{});
-    currentUser=null; confirmation=null;
-    document.getElementById('phone').value=''; document.getElementById('otp').value='';
-    document.getElementById('stepOtp').classList.remove('active');
-    document.getElementById('stepPhone').classList.add('active');
+    currentUser=null;
+    const em=document.getElementById('email'), pw=document.getElementById('password');
+    if(em) em.value=''; if(pw) pw.value='';
     document.querySelectorAll('.modal-bg.show').forEach(m=>m.classList.remove('show'));
     showView('loginView');
   }
 
   /* ===================== כניסה (OTP) ===================== */
-  /* ===================== כניסה (Firebase Phone Auth) ===================== */
-  function showPhoneStep(){ document.getElementById('stepOtp').classList.remove('active');
-    document.getElementById('stepPhone').classList.add('active'); }
-  function showOtpStep(){ document.getElementById('stepPhone').classList.remove('active');
-    document.getElementById('stepOtp').classList.add('active'); document.getElementById('otp').focus(); }
-  // מאתחל reCAPTCHA נקי בכל ניסיון — מונע שגיאת internal-error בניסיון חוזר
-  function resetRecaptcha(){
-    if(recaptcha){ try{recaptcha.clear();}catch(e){} recaptcha=null; }
-    const c=document.getElementById('recaptcha-container'); if(c) c.innerHTML='';
-  }
+  /* ===================== כניסה (Firebase Email/Password Auth) ===================== */
+  const normEmail = (s) => (s||'').trim().toLowerCase();
 
-  document.getElementById('sendOtp').onclick=async ()=>{
+  document.getElementById('loginBtn').onclick=async ()=>{
     if(!FB_CONFIGURED){ showMsg('Firebase אינו מוגדר בקובץ.'); return; }
-    const e164=toE164(document.getElementById('phone').value.trim());
-    if(e164.replace(/\D/g,'').length<11){ showMsg('הזינו מספר טלפון תקין.'); return; }
-    const btn=document.getElementById('sendOtp'); btn.disabled=true;
+    const email=normEmail(document.getElementById('email').value);
+    const pass=document.getElementById('password').value;
+    if(!email || !pass){ showMsg('יש להזין אימייל וסיסמה.'); return; }
+    const btn=document.getElementById('loginBtn'); btn.disabled=true;
     try{
-      resetRecaptcha();
-      recaptcha=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible'});
-      await recaptcha.render();
-      confirmation=await auth.signInWithPhoneNumber(e164, recaptcha);
-      showOtpStep();
-      showMsg('נשלח קוד אימות ב‑SMS אל '+e164);
+      const cred=await auth.signInWithEmailAndPassword(email, pass);
+      await enterWithFirebaseUser(cred.user);
     }catch(err){ console.error(err);
-      const m={'auth/too-many-requests':'יותר מדי ניסיונות — נסו מאוחר יותר או השתמשו במספר בדיקה.',
-               'auth/invalid-phone-number':'מספר טלפון לא תקין.',
-               'auth/unauthorized-domain':'הדומיין אינו מורשה ב‑Firebase (Authorized domains).',
-               'auth/operation-not-allowed':'אימות טלפון אינו מופעל / אזור ה‑SMS חסום.'}[err.code]
-               || ('שגיאה בשליחת הקוד: '+(err.code||err.message));
-      showMsg(m, 7000); resetRecaptcha();
+      const m={'auth/invalid-email':'כתובת אימייל לא תקינה.',
+               'auth/user-not-found':'משתמש זה אינו רשום במערכת.',
+               'auth/wrong-password':'סיסמה שגויה.',
+               'auth/invalid-credential':'אימייל או סיסמה שגויים.',
+               'auth/too-many-requests':'יותר מדי ניסיונות — נסו שוב מאוחר יותר.',
+               'auth/user-disabled':'המשתמש חסום. פנו למנהל.'}[err.code]
+               || ('שגיאת כניסה: '+(err.code||err.message));
+      showMsg(m, 7000);
     }finally{ btn.disabled=false; }
   };
-  document.getElementById('verifyOtp').onclick=async ()=>{
-    if(!confirmation){ showMsg('יש לשלוח קוד תחילה (כפתור "שליחת קוד").'); return; }
-    const btn=document.getElementById('verifyOtp'); btn.disabled=true;
+  // שכחתי סיסמה / הגדרת סיסמה ראשונה — שליחת מייל עם קישור להגדרת סיסמה
+  document.getElementById('forgotBtn').onclick=async ()=>{
+    const email=normEmail(document.getElementById('email').value);
+    if(!email){ showMsg('הזינו תחילה את כתובת האימייל בשדה למעלה, ואז לחצו שוב.'); return; }
     try{
-      const cred=await confirmation.confirm(document.getElementById('otp').value.trim());
-      await enterWithFirebaseUser(cred.user);
-    }catch(err){ console.error(err); showMsg('קוד שגוי או שפג תוקפו.'); }
-    finally{ btn.disabled=false; }
+      await auth.sendPasswordResetEmail(email);
+      showMsg('נשלח אליך מייל עם קישור להגדרת סיסמה. בדקו גם בתיקיית הספאם.', 9000);
+    }catch(err){ console.error(err);
+      const m={'auth/invalid-email':'כתובת אימייל לא תקינה.',
+               'auth/user-not-found':'משתמש זה אינו רשום במערכת. פנו למנהל להזמנה.'}[err.code]
+               || ('שגיאה בשליחת המייל: '+(err.code||err.message));
+      showMsg(m, 9000);
+    }
   };
-  document.getElementById('haveCode').onclick=()=>{
-    if(!confirmation){ showMsg('יש לשלוח קוד תחילה.'); return; }
-    showOtpStep();
-  };
-  document.getElementById('backToPhone').onclick=()=>{ showPhoneStep(); document.getElementById('otp').value=''; };
-  document.getElementById('otp').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('verifyOtp').click(); });
-  document.getElementById('phone').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('sendOtp').click(); });
+  document.getElementById('password').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('loginBtn').click(); });
+  document.getElementById('email').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('password').focus(); });
 
-  // טעינת פרופיל מורשה מ‑Firestore; מספר שאינו מוגדר ברשימה — אינו מורשה
+  // טעינת פרופיל מורשה מ‑Firestore; מייל שאינו מוגדר ברשימה — אינו מורשה
   async function enterWithFirebaseUser(user){
+    const emailId=normEmail(user.email);
     try{
-      const snap=await db.collection('users').doc(user.phoneNumber).get();
-      if(!snap.exists){ await auth.signOut(); showMsg('המספר אומת אך אינו מורשה במערכת. פנו למנהל.'); return; }
-      currentUser={ id:user.phoneNumber, ...snap.data() };
+      const snap=await db.collection('users').doc(emailId).get();
+      if(!snap.exists){ await auth.signOut(); showMsg('האימייל אומת אך אינו מורשה במערכת. פנו למנהל.'); return; }
+      currentUser={ id:emailId, ...snap.data() };
       if(!Array.isArray(currentUser.projects)) currentUser.projects=[];
       renderBadges();
       if(currentUser.superAdmin){ renderSuperView(); showView('superView'); return; }   // מנהל‑על
