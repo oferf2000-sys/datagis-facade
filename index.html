@@ -410,7 +410,7 @@
       <p class="sub">יצירת חברות, הקצאת מכסת משתמשים, וכניסה לניהול המשתמשים של כל חברה</p>
       <div class="table-wrap">
       <table class="facades">
-        <thead><tr><th>חברה</th><th>משתמשים</th><th>מכסה</th><th></th><th></th><th></th></tr></thead>
+        <thead><tr><th>חברה</th><th>משתמשים</th><th>מכסה</th><th></th><th></th><th></th><th></th></tr></thead>
         <tbody id="companyRows"></tbody>
       </table>
       </div>
@@ -543,7 +543,7 @@
     <div class="panel-head"><h3 id="umTitle">משתמש חדש</h3></div>
     <p class="panel-sub">הגדרת פרטי משתמש והרשאת כניסה</p>
     <div class="fld"><label>שם מלא</label><input type="text" id="umName" autocomplete="off"></div>
-    <div class="fld"><label>מספר טלפון</label><input type="tel" id="umPhone" dir="ltr" placeholder="0500000000" autocomplete="off"></div>
+    <div class="fld"><label>אימייל</label><input type="email" id="umEmail" dir="ltr" placeholder="name@company.com" autocomplete="off"></div>
     <div class="fld"><label>חברה</label><input type="text" id="umCompany" autocomplete="off"></div>
     <div class="fld"><label>תפקיד</label><input type="text" id="umRole" autocomplete="off"></div>
     <label class="chk"><input type="checkbox" id="umAdmin"> הרשאת מנהל חברה (ניהול משתמשים ופרויקטים)</label>
@@ -1091,14 +1091,16 @@
         const u={ id:s.id, ...s.data() };
         const tr=document.createElement('tr');
         tr.innerHTML=`<td style="font-weight:600">${u.name||''}${u.id===currentUser.id?' <span class="tag-no">אני</span>':''}</td>
-          <td style="font-family:var(--mono);font-size:12px" dir="ltr">${u.phone||u.id}</td>
+          <td style="font-family:var(--mono);font-size:12px" dir="ltr">${u.email||u.id}</td>
           <td>${u.company||''}</td><td>${u.role||''}</td>
           <td>${u.admin?'<span class="tag-admin">מנהל חברה</span>':'<span class="tag-no">משתמש</span>'}</td>
           <td><div class="row-actions">
             <button class="icon-btn" data-act="edit">עריכה</button>
+            <button class="icon-btn" data-act="invite">שלח הזמנה</button>
             <button class="icon-btn del" data-act="del">מחיקה</button>
           </div></td>`;
         tr.querySelector('[data-act=edit]').onclick=()=>openUserForm(u);
+        tr.querySelector('[data-act=invite]').onclick=()=>resendInvite(u);
         tr.querySelector('[data-act=del]').onclick=()=>deleteUser(u);
         tb.appendChild(tr);
       });
@@ -1107,9 +1109,11 @@
   }
   async function openUserForm(u){
     editingUser=u||null;
-    document.getElementById('umTitle').textContent=u?'עריכת משתמש':'משתמש חדש';
+    document.getElementById('umTitle').textContent=u?'עריכת משתמש':'הזמנת משתמש חדש';
     document.getElementById('umName').value   = u?u.name:'';
-    document.getElementById('umPhone').value  = u?(u.phone||u.id):'';
+    const emailInp=document.getElementById('umEmail');
+    emailInp.value = u?(u.email||u.id):'';
+    emailInp.readOnly = !!u;                  // אימייל = מזהה; לא נערך לאחר יצירה
     const comp=document.getElementById('umCompany');
     comp.value = u?u.company:adminCompany;   // נעול לחברה שמנהלים — בידוד בין חברות
     comp.readOnly = true;
@@ -1137,31 +1141,62 @@
     document.getElementById('umProjectsNote').style.display = isAdmin?'block':'none';
   }
   document.getElementById('umAdmin').addEventListener('change', updateUmProjectsVisibility);
+  // יצירת חשבון Auth למשתמש מוזמן, דרך אפליקציית‑משנה כדי לא לנתק את המנהל, ואז מייל להגדרת סיסמה
+  async function inviteAuthUser(email){
+    let secondary=null;
+    try{
+      secondary=firebase.initializeApp(firebaseConfig, 'inviter-'+Date.now());
+      const rnd='Tmp!'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2).toUpperCase()+'9';
+      try{ await secondary.auth().createUserWithEmailAndPassword(email, rnd); }
+      catch(e){ if(e.code!=='auth/email-already-in-use') throw e; }   // כבר קיים חשבון — נמשיך לשלוח קישור
+      try{ await secondary.auth().signOut(); }catch(e){}
+    } finally { if(secondary){ try{ await secondary.delete(); }catch(e){} } }
+    await auth.sendPasswordResetEmail(email);   // מייל "הגדר סיסמה" — לא משפיע על חיבור המנהל
+  }
+
   document.getElementById('umSave').onclick=async ()=>{
     const name=document.getElementById('umName').value.trim();
-    const phoneRaw=document.getElementById('umPhone').value.trim();
+    const email=normEmail(document.getElementById('umEmail').value);
     const role=document.getElementById('umRole').value.trim();
     const admin=document.getElementById('umAdmin').checked;
     const company=adminCompany;
-    if(!name||!phoneRaw){ showMsg('יש למלא לפחות שם ומספר טלפון.'); return; }
-    const e164=toE164(phoneRaw);
-    if(e164.replace(/\D/g,'').length<11){ showMsg('מספר הטלפון אינו תקין.'); return; }
-    // אכיפת מכסה (מנהל‑על פטור)
+    if(!name||!email){ showMsg('יש למלא שם ואימייל.'); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showMsg('כתובת אימייל אינה תקינה.'); return; }
+    // אכיפת מכסה (מנהל‑על פטור) — רק בהוספה
     if(!editingUser && !currentUser.superAdmin && companyQuota!=null && companyUserCount>=companyQuota){
       showMsg('הגעת למכסת המשתמשים של החברה ('+companyQuota+'). פנה למנהל‑העל.'); return;
     }
-    const data={ name, phone:e164, company, role, admin };
     const projects = admin ? [] : Array.from(document.querySelectorAll('#umProjects input:checked')).map(c=>c.value);
-    data.projects = projects;
+    const data={ name, email, company, role, admin, projects };
+    const btn=document.getElementById('umSave'); btn.disabled=true;
     try{
-      if(editingUser && editingUser.id!==e164){ await db.collection('users').doc(editingUser.id).delete(); }
-      await db.collection('users').doc(e164).set(data);   // מזהה המסמך = הטלפון ב‑E.164
-      userModal.classList.remove('show');
-      showMsg(editingUser?'המשתמש עודכן':'נוסף משתמש: '+name);
+      if(editingUser){
+        // עריכה: האימייל קבוע (מזהה) — מעדכנים רק פרטים
+        await db.collection('users').doc(editingUser.id).set(data, {merge:true});
+        userModal.classList.remove('show'); showMsg('המשתמש עודכן');
+      } else {
+        await db.collection('users').doc(email).set(data);   // מזהה המסמך = האימייל
+        showMsg('יוצר חשבון ושולח הזמנה…', 8000);
+        try{
+          await inviteAuthUser(email);
+          showMsg('נשלחה הזמנה אל '+email+' — המשתמש יקבל מייל להגדרת סיסמה', 9000);
+        }catch(inviteErr){ console.error(inviteErr);
+          showMsg('המשתמש נוצר אך שליחת ההזמנה נכשלה: '+(inviteErr.code||inviteErr.message)+'. ניתן ללחוץ "שלח הזמנה" בשורת המשתמש.', 11000);
+        }
+        userModal.classList.remove('show');
+      }
       renderUserTable();
     }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
+    finally{ btn.disabled=false; }
   };
   document.getElementById('umCancel').onclick=()=>userModal.classList.remove('show');
+
+  async function resendInvite(u){
+    const email=u.email||u.id;
+    showMsg('שולח הזמנה מחדש…', 6000);
+    try{ await inviteAuthUser(email); showMsg('נשלחה הזמנה מחדש אל '+email, 8000); }
+    catch(err){ console.error(err); showMsg('שגיאה בשליחת ההזמנה: '+(err.code||err.message), 9000); }
+  }
 
   async function deleteUser(u){
     if(u.id===currentUser.id){ showMsg('לא ניתן למחוק את המשתמש המחובר.'); return; }
@@ -1179,7 +1214,7 @@
   /* ===================== מנהל‑על: חברות ===================== */
   async function renderSuperView(){
     const tb=document.getElementById('companyRows');
-    tb.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px">טוען…</td></tr>';
+    tb.innerHTML='<tr><td colspan="7" style="color:var(--muted);padding:16px">טוען…</td></tr>';
     try{
       const [cs,us]=await Promise.all([ db.collection('companies').get(), db.collection('users').get() ]);
       const counts={}; us.forEach(s=>{ const c=s.data().company; if(c) counts[c]=(counts[c]||0)+1; });
@@ -1191,16 +1226,26 @@
         tr.innerHTML=`<td style="font-weight:600">${nm}</td>
           <td class="fc-count">${used}</td>
           <td class="fc-count">${c.quota!=null?c.quota:'—'}</td>
+          <td><button class="icon-btn" data-act="inviteadmin">הזמן מנהל חברה</button></td>
           <td><button class="icon-btn" data-act="projects">פרויקטים</button></td>
           <td><button class="icon-btn" data-act="users">ניהול משתמשים</button></td>
           <td><button class="icon-btn" data-act="edit">עריכה</button></td>`;
+        tr.querySelector('[data-act=inviteadmin]').onclick=()=>inviteCompanyAdmin(nm);
         tr.querySelector('[data-act=projects]').onclick=()=>openCompanyProjects(nm);
         tr.querySelector('[data-act=users]').onclick=()=>openAdminFor(nm);
         tr.querySelector('[data-act=edit]').onclick=()=>openCompanyForm(c);
         tb.appendChild(tr);
       });
-      if(!cs.size) tb.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px">אין חברות — צרו חברה חדשה</td></tr>';
-    }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="6" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
+      if(!cs.size) tb.innerHTML='<tr><td colspan="7" style="color:var(--muted);padding:16px">אין חברות — צרו חברה חדשה</td></tr>';
+    }catch(err){ console.error(err); tb.innerHTML='<tr><td colspan="7" style="color:var(--red);padding:16px">שגיאה בטעינה</td></tr>'; }
+  }
+  // מנהל‑על: הזמנת מנהל חברה — פותח את ניהול המשתמשים של החברה וטופס הזמנה עם הרשאת מנהל מסומנת
+  async function inviteCompanyAdmin(name){
+    await openAdminFor(name);
+    await openUserForm(null);
+    const chk=document.getElementById('umAdmin');
+    chk.checked=true; updateUmProjectsVisibility();
+    document.getElementById('umTitle').textContent='הזמנת מנהל חברה — '+name;
   }
   function openCompanyForm(c){
     editingCompany=c||null;
