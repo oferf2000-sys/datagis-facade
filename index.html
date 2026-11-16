@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-functions-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -654,12 +655,13 @@
     measurementId:     "G-GG8EJ51R0Y"
   };
   const FB_CONFIGURED = !String(firebaseConfig.apiKey).startsWith("PASTE");
-  let auth=null, db=null, storage=null, recaptcha=null, confirmation=null;
+  let auth=null, db=null, storage=null, functions=null, recaptcha=null, confirmation=null;
   if (FB_CONFIGURED) {
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db   = firebase.firestore();
     storage = firebase.storage();
+    functions = firebase.functions();
     auth.useDeviceLanguage();
   } else {
     setTimeout(()=>showMsg('יש להגדיר את חיבור Firebase (firebaseConfig) בקובץ לפני שימוש.',15000),400);
@@ -1141,17 +1143,11 @@
     document.getElementById('umProjectsNote').style.display = isAdmin?'block':'none';
   }
   document.getElementById('umAdmin').addEventListener('change', updateUmProjectsVisibility);
-  // יצירת חשבון Auth למשתמש מוזמן, דרך אפליקציית‑משנה כדי לא לנתק את המנהל, ואז מייל להגדרת סיסמה
-  async function inviteAuthUser(email){
-    let secondary=null;
-    try{
-      secondary=firebase.initializeApp(firebaseConfig, 'inviter-'+Date.now());
-      const rnd='Tmp!'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2).toUpperCase()+'9';
-      try{ await secondary.auth().createUserWithEmailAndPassword(email, rnd); }
-      catch(e){ if(e.code!=='auth/email-already-in-use') throw e; }   // כבר קיים חשבון — נמשיך לשלוח קישור
-      try{ await secondary.auth().signOut(); }catch(e){}
-    } finally { if(secondary){ try{ await secondary.delete(); }catch(e){} } }
-    await auth.sendPasswordResetEmail(email);   // מייל "הגדר סיסמה" — לא משפיע על חיבור המנהל
+  // הזמנת משתמש דרך Cloud Function — יוצרת חשבון, שומרת פרופיל, ושולחת מייל ממותג מ‑ofer-cio.com
+  async function inviteUserViaFunction(payload){
+    const fn=functions.httpsCallable('inviteUser');
+    const res=await fn(payload);
+    return res.data;
   }
 
   document.getElementById('umSave').onclick=async ()=>{
@@ -1162,40 +1158,39 @@
     const company=adminCompany;
     if(!name||!email){ showMsg('יש למלא שם ואימייל.'); return; }
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showMsg('כתובת אימייל אינה תקינה.'); return; }
-    // אכיפת מכסה (מנהל‑על פטור) — רק בהוספה
+    // אכיפת מכסה בצד הלקוח (בדיקה מקדימה; השרת אוכף סופית) — רק בהוספה
     if(!editingUser && !currentUser.superAdmin && companyQuota!=null && companyUserCount>=companyQuota){
       showMsg('הגעת למכסת המשתמשים של החברה ('+companyQuota+'). פנה למנהל‑העל.'); return;
     }
     const projects = admin ? [] : Array.from(document.querySelectorAll('#umProjects input:checked')).map(c=>c.value);
-    const data={ name, email, company, role, admin, projects };
     const btn=document.getElementById('umSave'); btn.disabled=true;
     try{
       if(editingUser){
-        // עריכה: האימייל קבוע (מזהה) — מעדכנים רק פרטים
-        await db.collection('users').doc(editingUser.id).set(data, {merge:true});
+        // עריכה: האימייל קבוע (מזהה) — מעדכנים רק פרטים (ללא מייל/חשבון חדש)
+        await db.collection('users').doc(editingUser.id).set({ name, email:editingUser.id, company, role, admin, projects }, {merge:true});
         userModal.classList.remove('show'); showMsg('המשתמש עודכן');
       } else {
-        await db.collection('users').doc(email).set(data);   // מזהה המסמך = האימייל
-        showMsg('יוצר חשבון ושולח הזמנה…', 8000);
-        try{
-          await inviteAuthUser(email);
-          showMsg('נשלחה הזמנה אל '+email+' — המשתמש יקבל מייל להגדרת סיסמה', 9000);
-        }catch(inviteErr){ console.error(inviteErr);
-          showMsg('המשתמש נוצר אך שליחת ההזמנה נכשלה: '+(inviteErr.code||inviteErr.message)+'. ניתן ללחוץ "שלח הזמנה" בשורת המשתמש.', 11000);
-        }
+        showMsg('יוצר חשבון ושולח הזמנה…', 10000);
+        await inviteUserViaFunction({ email, name, company, role, admin, projects });
         userModal.classList.remove('show');
+        showMsg('נשלחה הזמנה אל '+email+' — המשתמש יקבל מייל להגדרת סיסמה', 9000);
       }
       renderUserTable();
-    }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
+    }catch(err){ console.error(err);
+      showMsg('שגיאה: '+(err.message||err.code||'שמירה נכשלה'), 10000);
+    }
     finally{ btn.disabled=false; }
   };
   document.getElementById('umCancel').onclick=()=>userModal.classList.remove('show');
 
   async function resendInvite(u){
     const email=u.email||u.id;
-    showMsg('שולח הזמנה מחדש…', 6000);
-    try{ await inviteAuthUser(email); showMsg('נשלחה הזמנה מחדש אל '+email, 8000); }
-    catch(err){ console.error(err); showMsg('שגיאה בשליחת ההזמנה: '+(err.code||err.message), 9000); }
+    showMsg('שולח הזמנה מחדש…', 8000);
+    try{
+      await inviteUserViaFunction({ email, name:u.name||email, company:u.company||adminCompany,
+        role:u.role||'', admin:!!u.admin, projects:Array.isArray(u.projects)?u.projects:[] });
+      showMsg('נשלחה הזמנה מחדש אל '+email, 8000);
+    }catch(err){ console.error(err); showMsg('שגיאה בשליחת ההזמנה: '+(err.message||err.code), 9000); }
   }
 
   async function deleteUser(u){
