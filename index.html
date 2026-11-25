@@ -204,6 +204,44 @@
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px}
   .table-wrap table.facades{min-width:480px}
 
+  /* ===== דוחות ===== */
+  .rp-filters{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;align-items:end}
+  .rp-filters label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+  .rp-filters select,.rp-filters input{background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;min-width:130px}
+  .rp-tiles{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  .rp-tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;min-width:120px;flex:1}
+  .rp-tile .num{font-size:26px;font-weight:700;font-family:var(--mono)}
+  .rp-tile .lbl{font-size:11px;color:var(--muted);margin-top:3px}
+  .rp-tile.g .num{color:#54c878}.rp-tile.r .num{color:#e0564f}.rp-tile.p .num{color:#79c4e0}
+  table.rp-table{min-width:900px;font-size:12px}
+  table.rp-table th{cursor:pointer;white-space:nowrap;user-select:none}
+  table.rp-table th:hover{color:var(--cyan)}
+  table.rp-table td{padding:7px 9px}
+  .rp-badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600}
+  .rp-badge.installed{background:rgba(84,200,120,.15);color:#54c878}
+  .rp-badge.fault{background:rgba(224,86,79,.15);color:#e0564f}
+  .rp-badge.pending{background:rgba(121,196,224,.13);color:#79c4e0}
+
+  @media print{
+    body{background:#fff!important;color:#000!important}
+    .view:not(#reportView){display:none!important}
+    #reportView header,.rp-filters,#reportBack,#rpCsvBtn,#rpPdfBtn,.logout-btn,.userbadge{display:none!important}
+    #reportView{position:static!important}
+    #rpPrintHead{display:block!important;margin-bottom:14px}
+    #rpPrintHead h2{margin:0 0 4px;color:#000}
+    #rpPrintHead .sub{color:#333;font-size:12px}
+    .menu-body{padding:0!important}
+    .rp-tiles{gap:8px}
+    .rp-tile{border:1px solid #bbb;background:#fff}
+    .rp-tile .num{color:#000!important}
+    .table-wrap{overflow:visible!important}
+    table.rp-table{min-width:0;width:100%;font-size:10px;color:#000}
+    table.rp-table th,table.rp-table td{border:1px solid #bbb;color:#000}
+    table.rp-table th{background:#eee}
+    .rp-badge{color:#000!important;background:none!important;padding:0}
+  }
+
   /* ===== התאמה לנייד ===== */
   @media (max-width:640px){
     header{gap:8px;padding:9px 12px}
@@ -263,6 +301,10 @@
     </button>
     <div class="title">פרויקטים<small>תפריט ראשי</small></div>
     <div class="spacer"></div>
+    <button class="btn" id="reportsBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3"/></svg>
+      דוחות
+    </button>
     <button class="btn" id="manageProjBtn" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h7l2 2h9v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
       פרויקט חדש
@@ -287,6 +329,82 @@
         <tbody id="projectRows"></tbody>
       </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ דוחות (מצרפי, לפי כל חתך) ============ -->
+<div class="view" id="reportView">
+  <header>
+    <button class="btn ghost" id="reportBack">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      חזרה
+    </button>
+    <div class="title">דוחות<small>ניתוח בקרת חזיתות</small></div>
+    <div class="spacer"></div>
+    <button class="btn" id="rpCsvBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 11l5 5 5-5M5 20h14"/></svg>
+      CSV
+    </button>
+    <button class="btn primary" id="rpPdfBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5h20v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+      PDF / הדפסה
+    </button>
+    <button class="btn ghost logout-btn" title="יציאה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 17l5-5-5-5M21 12H9M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/></svg>
+      יציאה
+    </button>
+    <div class="userbadge" id="badgeReport"></div>
+  </header>
+  <div class="menu-body">
+    <div class="menu-inner" id="reportInner">
+      <div id="rpPrintHead" style="display:none"></div>
+
+      <!-- סרגל סינון -->
+      <div class="rp-filters">
+        <label>פרויקט<select id="rpfProject"><option value="">הכל</option></select></label>
+        <label>חזית<select id="rpfFacade"><option value="">הכל</option></select></label>
+        <label>סוג אלמנט<select id="rpfType"><option value="">הכל</option></select></label>
+        <label>סטטוס<select id="rpfStatus">
+          <option value="">הכל</option>
+          <option value="installed">מותקן</option>
+          <option value="pending">ממתין</option>
+          <option value="fault">תקלה</option>
+        </select></label>
+        <label>סוג תקלה<select id="rpfFault"><option value="">הכל</option>
+          <option value="סדק">סדק</option>
+          <option value="חדירת מים">חדירת מים</option>
+          <option value="שבר">שבר</option>
+        </select></label>
+        <label>חיפוש<input type="text" id="rpfSearch" placeholder="מזהה / הערה / קבלן"></label>
+        <button class="btn ghost" id="rpfClear" style="align-self:end">נקה</button>
+      </div>
+
+      <!-- אריחי סיכום -->
+      <div class="rp-tiles" id="rpTiles"></div>
+
+      <!-- טבלה מפורטת -->
+      <div class="table-wrap">
+      <table class="facades rp-table" id="rpTable">
+        <thead><tr>
+          <th data-sort="project">פרויקט</th>
+          <th data-sort="facade">חזית</th>
+          <th data-sort="drawing">שרטוט</th>
+          <th data-sort="id">מזהה</th>
+          <th data-sort="type">סוג</th>
+          <th data-sort="status">סטטוס</th>
+          <th data-sort="contractor">קבלן</th>
+          <th data-sort="fix">קיבוע</th>
+          <th data-sort="seal">איטום</th>
+          <th data-sort="clad">חיפוי</th>
+          <th data-sort="qa">QA</th>
+          <th data-sort="fault">תקלה</th>
+          <th data-sort="note">הערה</th>
+        </tr></thead>
+        <tbody id="rpRows"></tbody>
+      </table>
+      </div>
+      <p class="sub" id="rpCount" style="margin-top:10px"></p>
     </div>
   </div>
 </div>
@@ -905,7 +1023,7 @@
     if(!currentUser) return;
     const role = currentUser.superAdmin ? 'מנהל‑על' : ((currentUser.company||'')+' · '+(currentUser.role||''));
     const html=`<span class="nm">${currentUser.name}</span><span class="meta">${role}</span>`;
-    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper','badgeProjects','badgeDrawings'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
+    ['badgeMenu','badgeApp','badgeAdmin','badgeSuper','badgeProjects','badgeDrawings','badgeReport'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
   }
 
   /* ===================== טבלת חזיתות ===================== */
@@ -1035,6 +1153,166 @@
   }
   document.getElementById('facadesBack').onclick=()=>{ renderProjectsView(); showView('projectsView'); };
   document.getElementById('superBackBtn').onclick=()=>superBackToCompanies();
+
+  /* ===================== דוחות מצרפיים ===================== */
+  let rpRowsData=[], rpSort={key:'project',dir:1};
+  const inspKey=(drawingId,elId)=>drawingId+'__'+elId;
+  const statusOf=(r)=> r.fault ? 'fault' : (r.installed&&r.qa ? 'installed' : 'pending');
+  const statusHeRep=(s)=>({fault:'תקלה',installed:'מותקן',pending:'ממתין'}[s]);
+
+  async function loadReportData(){
+    const comp=workCompany();
+    const [projSnap,facSnap,drwSnap,inspSnap]=await Promise.all([
+      db.collection('projects').where('company','==',comp).get(),
+      db.collection('facades').where('company','==',comp).get(),
+      db.collection('drawings').where('company','==',comp).get(),
+      db.collection('inspections').where('company','==',comp).get()
+    ]);
+    const projName={}, facName={};
+    projSnap.forEach(s=>projName[s.id]=(s.data().name||s.id));
+    facSnap.forEach(s=>facName[s.id]=(s.data().name||s.id));
+    const insp={};
+    inspSnap.forEach(s=>insp[s.id]=s.data());
+    // הגבלת היקף למשתמש רגיל — רק הפרויקטים שהוקצו לו
+    const allowed = (currentUser.superAdmin||currentUser.admin) ? null : new Set(currentUser.projects||[]);
+    const rows=[];
+    drwSnap.forEach(s=>{
+      const d={ id:s.id, ...s.data() };
+      if(allowed && !allowed.has(d.project)) return;
+      (d.elements||[]).forEach(el=>{
+        const st=insp[inspKey(d.id, el.id)]||{};
+        const install=st.install||{};
+        rows.push({
+          project: projName[d.project]||'—',
+          facade: facName[d.facade]||'—',
+          drawing: d.name||'—',
+          id: el.id, type: el.type||'',
+          installed: !!st.installed, qa: !!st.qa, fault: st.fault||null,
+          fix: !!install.fix, seal: !!install.seal, clad: !!install.clad,
+          contractor: el.contractor||'',
+          faultType: st.fault?st.fault.type:'', note: st.fault?(st.fault.note||''):''
+        });
+      });
+    });
+    return rows;
+  }
+
+  function rpPopulateFilters(){
+    const projs=[...new Set(rpRowsData.map(r=>r.project))].sort();
+    const facs=[...new Set(rpRowsData.map(r=>r.facade))].sort();
+    const types=[...new Set(rpRowsData.map(r=>r.type).filter(Boolean))].sort();
+    const fill=(id,arr)=>{ const sel=document.getElementById(id); const cur=sel.value;
+      sel.innerHTML='<option value="">הכל</option>'+arr.map(v=>`<option>${v}</option>`).join(''); sel.value=cur; };
+    fill('rpfProject',projs); fill('rpfFacade',facs); fill('rpfType',types);
+  }
+
+  function rpFiltered(){
+    const fp=document.getElementById('rpfProject').value;
+    const ff=document.getElementById('rpfFacade').value;
+    const ft=document.getElementById('rpfType').value;
+    const fs=document.getElementById('rpfStatus').value;
+    const ffa=document.getElementById('rpfFault').value;
+    const q=document.getElementById('rpfSearch').value.trim().toLowerCase();
+    let rows=rpRowsData.filter(r=>{
+      if(fp && r.project!==fp) return false;
+      if(ff && r.facade!==ff) return false;
+      if(ft && r.type!==ft) return false;
+      if(fs && statusOf(r)!==fs) return false;
+      if(ffa && r.faultType!==ffa) return false;
+      if(q){ const hay=(r.id+' '+r.note+' '+r.contractor+' '+r.type+' '+r.drawing).toLowerCase(); if(!hay.includes(q)) return false; }
+      return true;
+    });
+    const k=rpSort.key, dir=rpSort.dir;
+    const val=(r)=> k==='status'?statusHeRep(statusOf(r)) : k==='fault'?r.faultType :
+      (['installed','qa','fix','seal','clad'].includes(k)? (r[k]?1:0) : (r[k]!=null?r[k]:''));
+    rows.sort((a,b)=>{ const x=val(a),y=val(b); return (x>y?1:x<y?-1:0)*dir; });
+    return rows;
+  }
+
+  function rpRenderTiles(rows){
+    const total=rows.length;
+    const inst=rows.filter(r=>statusOf(r)==='installed').length;
+    const flt=rows.filter(r=>statusOf(r)==='fault').length;
+    const pend=rows.filter(r=>statusOf(r)==='pending').length;
+    const pct=total?Math.round(inst/total*100):0;
+    document.getElementById('rpTiles').innerHTML=
+      tile('',total,'סה״כ אלמנטים')+tile('g',inst,'מותקנים ('+pct+'%)')+
+      tile('p',pend,'ממתינים')+tile('r',flt,'תקלות');
+  }
+  function tile(cls,num,lbl){ return `<div class="rp-tile ${cls}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`; }
+
+  function rpRenderTable(rows){
+    const yn=b=>b?'✓':'';
+    const tb=document.getElementById('rpRows');
+    tb.innerHTML=rows.map(r=>{
+      const s=statusOf(r);
+      return `<tr>
+        <td>${r.project}</td><td>${r.facade}</td><td>${r.drawing}</td>
+        <td style="font-family:var(--mono)">${r.id}</td><td>${r.type}</td>
+        <td><span class="rp-badge ${s}">${statusHeRep(s)}</span></td>
+        <td>${r.contractor||''}</td>
+        <td style="text-align:center;color:#54c878">${yn(r.fix)}</td>
+        <td style="text-align:center;color:#54c878">${yn(r.seal)}</td>
+        <td style="text-align:center;color:#54c878">${yn(r.clad)}</td>
+        <td style="text-align:center;color:#54c878">${yn(r.qa)}</td>
+        <td>${r.faultType||''}</td><td>${r.note||''}</td>
+      </tr>`;
+    }).join('');
+    if(!rows.length) tb.innerHTML='<tr><td colspan="13" style="color:var(--muted);padding:16px;text-align:center">אין נתונים התואמים לסינון</td></tr>';
+    document.getElementById('rpCount').textContent='מוצגים '+rows.length+' אלמנטים';
+  }
+
+  function rpRefresh(){
+    const rows=rpFiltered();
+    rpRenderTiles(rows); rpRenderTable(rows);
+  }
+
+  async function openReports(){
+    renderBadges(); showView('reportView');
+    document.getElementById('rpRows').innerHTML='<tr><td colspan="13" style="color:var(--muted);padding:16px;text-align:center">טוען נתונים…</td></tr>';
+    try{
+      rpRowsData=await loadReportData();
+      rpPopulateFilters(); rpRefresh();
+    }catch(err){ console.error(err);
+      document.getElementById('rpRows').innerHTML='<tr><td colspan="13" style="color:var(--red);padding:16px;text-align:center">שגיאה בטעינת הדוח: '+(err.code||err.message)+'</td></tr>';
+    }
+  }
+  document.getElementById('reportsBtn').onclick=openReports;
+  document.getElementById('reportBack').onclick=()=>{ renderProjectsView(); showView('projectsView'); };
+  ['rpfProject','rpfFacade','rpfType','rpfStatus','rpfFault'].forEach(id=>
+    document.getElementById(id).addEventListener('change',rpRefresh));
+  document.getElementById('rpfSearch').addEventListener('input',rpRefresh);
+  document.getElementById('rpfClear').onclick=()=>{
+    ['rpfProject','rpfFacade','rpfType','rpfStatus','rpfFault'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('rpfSearch').value=''; rpRefresh();
+  };
+  document.querySelectorAll('#rpTable th[data-sort]').forEach(th=>th.onclick=()=>{
+    const k=th.getAttribute('data-sort');
+    if(rpSort.key===k) rpSort.dir*=-1; else { rpSort.key=k; rpSort.dir=1; }
+    rpRefresh();
+  });
+  document.getElementById('rpCsvBtn').onclick=()=>{
+    const rows=rpFiltered();
+    const head=['פרויקט','חזית','שרטוט','מזהה','סוג','סטטוס','קבלן','קיבוע','איטום','חיפוי','QA','סוג תקלה','הערה'];
+    const yn=b=>b?'כן':'לא';
+    const lines=[head].concat(rows.map(r=>[r.project,r.facade,r.drawing,r.id,r.type,statusHeRep(statusOf(r)),
+      r.contractor,yn(r.fix),yn(r.seal),yn(r.clad),yn(r.qa),r.faultType,r.note]));
+    const csv='﻿'+lines.map(row=>row.map(csvCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='facade_report.csv'; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },500);
+    showMsg('הדוח הורד כקובץ CSV');
+  };
+  document.getElementById('rpPdfBtn').onclick=()=>{
+    const scope = workCompany()||'';
+    const when=new Date().toLocaleString('he-IL');
+    const rows=rpFiltered();
+    document.getElementById('rpPrintHead').innerHTML=
+      '<h2>דוח בקרת חזיתות — '+scope+'</h2>'+
+      '<div class="sub">הופק: '+when+' · '+currentUser.name+' · '+rows.length+' אלמנטים</div>';
+    window.print();
+  };
 
   function openProjectForm(p){
     editingProject=p||null;
