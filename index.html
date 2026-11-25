@@ -58,8 +58,14 @@
   .btn svg{width:18px;height:18px}
 
   /* ===== מסך כניסה ===== */
-  #loginView{align-items:center;justify-content:center;background:
+  #loginView{align-items:center;justify-content:center;position:relative;overflow:hidden;background:
     radial-gradient(120% 90% at 50% -10%, var(--login-glow) 0%, var(--ink) 60%)}
+  #loginView::before{content:"";position:absolute;inset:0;z-index:0;
+    background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAwIDkwMCI+CjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzc5YzRlMCIgc3Ryb2tlLXdpZHRoPSIxLjQiIG9wYWNpdHk9IjAuNSI+CjxyZWN0IHg9IjEyMCIgeT0iMTQwIiB3aWR0aD0iNTIwIiBoZWlnaHQ9IjY0MCIgcng9IjQiLz4KPGxpbmUgeDE9IjEyMCIgeTE9IjI1MCIgeDI9IjY0MCIgeTI9IjI1MCIvPjxsaW5lIHgxPSIxMjAiIHkxPSIzNjAiIHgyPSI2NDAiIHkyPSIzNjAiLz4KPGxpbmUgeDE9IjEyMCIgeTE9IjQ3MCIgeDI9IjY0MCIgeTI9IjQ3MCIvPjxsaW5lIHgxPSIxMjAiIHkxPSI1ODAiIHgyPSI2NDAiIHkyPSI1ODAiLz4KPGxpbmUgeDE9IjEyMCIgeTE9IjY5MCIgeDI9IjY0MCIgeTI9IjY5MCIvPgo8Zz4KPHJlY3QgeD0iMTYwIiB5PSIxNzUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjI1MCIgeT0iMTc1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSIzNDAiIHk9IjE3NSIgd2lkdGg9IjYwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iNDMwIiB5PSIxNzUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjUyMCIgeT0iMTc1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz4KPHJlY3QgeD0iMTYwIiB5PSIyODUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjI1MCIgeT0iMjg1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSIzNDAiIHk9IjI4NSIgd2lkdGg9IjYwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iNDMwIiB5PSIyODUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjUyMCIgeT0iMjg1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz4KPHJlY3QgeD0iMTYwIiB5PSIzOTUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjI1MCIgeT0iMzk1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSIzNDAiIHk9IjM5NSIgd2lkdGg9IjYwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iNDMwIiB5PSIzOTUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjUyMCIgeT0iMzk1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz4KPHJlY3QgeD0iMTYwIiB5PSI1MDUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjI1MCIgeT0iNTA1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSIzNDAiIHk9IjUwNSIgd2lkdGg9IjYwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iNDMwIiB5PSI1MDUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjUyMCIgeT0iNTA1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz4KPHJlY3QgeD0iMTYwIiB5PSI2MTUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjI1MCIgeT0iNjE1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSIzNDAiIHk9IjYxNSIgd2lkdGg9IjYwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iNDMwIiB5PSI2MTUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjUyMCIgeT0iNjE1IiB3aWR0aD0iNjAiIGhlaWdodD0iNTUiLz4KPHJlY3QgeD0iMzIwIiB5PSI3MTAiIHdpZHRoPSI5MCIgaGVpZ2h0PSI3MCIvPgo8L2c+CjxyZWN0IHg9Ijc0MCIgeT0iMzAwIiB3aWR0aD0iNDIwIiBoZWlnaHQ9IjQ4MCIgcng9IjQiLz4KPGxpbmUgeDE9Ijc0MCIgeTE9IjQxMCIgeDI9IjExNjAiIHkyPSI0MTAiLz48bGluZSB4MT0iNzQwIiB5MT0iNTIwIiB4Mj0iMTE2MCIgeTI9IjUyMCIvPjxsaW5lIHgxPSI3NDAiIHkxPSI2MzAiIHgyPSIxMTYwIiB5Mj0iNjMwIi8+CjxnPgo8cmVjdCB4PSI3ODAiIHk9IjMzNSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iODkwIiB5PSIzMzUiIHdpZHRoPSI3MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjEwMDAiIHk9IjMzNSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjU1Ii8+CjxyZWN0IHg9Ijc4MCIgeT0iNDQ1IiB3aWR0aD0iNzAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSI4OTAiIHk9IjQ0NSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iMTAwMCIgeT0iNDQ1IiB3aWR0aD0iNzAiIGhlaWdodD0iNTUiLz4KPHJlY3QgeD0iNzgwIiB5PSI1NTUiIHdpZHRoPSI3MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9Ijg5MCIgeT0iNTU1IiB3aWR0aD0iNzAiIGhlaWdodD0iNTUiLz48cmVjdCB4PSIxMDAwIiB5PSI1NTUiIHdpZHRoPSI3MCIgaGVpZ2h0PSI1NSIvPgo8cmVjdCB4PSI3ODAiIHk9IjY2NSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjU1Ii8+PHJlY3QgeD0iODkwIiB5PSI2NjUiIHdpZHRoPSI3MCIgaGVpZ2h0PSI1NSIvPjxyZWN0IHg9IjEwMDAiIHk9IjY2NSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjU1Ii8+CjwvZz4KPGxpbmUgeDE9IjYwIiB5MT0iODAwIiB4Mj0iMTM0MCIgeTI9IjgwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjwvZz4KPC9zdmc+Cg==");
+    background-size:min(1100px,120%) auto;background-position:center 60%;background-repeat:no-repeat;
+    opacity:.12;pointer-events:none}
+  :root[data-theme="light"] #loginView::before{opacity:.10}
+  #loginView .login-card{position:relative;z-index:1}
   .login-card{width:360px;max-width:92vw;background:var(--panel);border:1px solid var(--line);
     border-radius:18px;padding:34px 30px;box-shadow:var(--shadow)}
   .logo{display:flex;align-items:center;gap:12px;margin-bottom:26px}
@@ -83,10 +89,12 @@
   header .title{font-size:15px;font-weight:600}
   header .title small{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
   header .spacer{margin-inline-start:auto}
-  .userbadge{display:flex;flex-direction:column;align-items:flex-end;font-family:var(--mono);
+  .userbadge{display:flex;flex-direction:row;align-items:center;gap:10px;font-family:var(--mono);
     line-height:1.45;padding-inline-start:14px;border-inline-start:1px solid var(--line)}
+  .userbadge .badge-text{display:flex;flex-direction:column;align-items:flex-end}
   .userbadge .nm{font-size:12px;color:var(--text)}
   .userbadge .meta{font-size:10px;color:var(--muted)}
+  .co-logo{height:32px;max-width:96px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex:0 0 auto}
 
   /* ===== טבלת חזיתות ===== */
   #menuView{background:var(--ink)}
@@ -716,6 +724,14 @@
     <p class="panel-sub">שם החברה ומכסת המשתמשים המרבית</p>
     <div class="fld"><label>שם החברה</label><input type="text" id="cmName" autocomplete="off"></div>
     <div class="fld"><label>מכסת משתמשים</label><input type="number" id="cmQuota" min="1" value="10" dir="ltr"></div>
+    <div class="fld"><label>לוגו החברה</label>
+      <input type="file" id="cmLogoFile" accept="image/*" style="display:none">
+      <div class="upload" id="cmLogoUpload"><span id="cmLogoLabel">בחירת קובץ תמונה…</span></div>
+      <div id="cmLogoPreview" style="margin-top:10px;display:none">
+        <img id="cmLogoImg" alt="לוגו" style="max-height:52px;max-width:160px;border-radius:6px;background:#fff;padding:4px">
+        <button type="button" class="btn ghost" id="cmLogoRemove" style="margin-inline-start:10px;font-size:12px;padding:6px 10px">הסרה</button>
+      </div>
+    </div>
     <div class="panel-actions">
       <button class="btn primary" id="cmSave">שמירה</button>
       <button class="btn" id="cmCancel">ביטול</button>
@@ -1040,6 +1056,7 @@
       if(!snap.exists){ await auth.signOut(); showMsg('האימייל אומת אך אינו מורשה במערכת. פנו למנהל.'); return; }
       currentUser={ id:emailId, ...snap.data() };
       if(!Array.isArray(currentUser.projects)) currentUser.projects=[];
+      if(!currentUser.superAdmin) await loadCompanyLogo(currentUser.company);
       renderBadges();
       if(currentUser.superAdmin){ renderSuperView(); showView('superView'); return; }   // מנהל‑על
       const isAdmin=!!currentUser.admin;
@@ -1050,10 +1067,18 @@
   }
 
   /* ===================== זיהוי משתמש ===================== */
+  let currentLogoUrl=null;
+  async function loadCompanyLogo(company){
+    if(!company){ currentLogoUrl=null; return; }
+    try{ const s=await db.collection('companies').doc(company).get();
+      currentLogoUrl=(s.exists?(s.data().logoUrl||null):null); }
+    catch(e){ currentLogoUrl=null; }
+  }
   function renderBadges(){
     if(!currentUser) return;
     const role = currentUser.superAdmin ? 'מנהל‑על' : ((currentUser.company||'')+' · '+(currentUser.role||''));
-    const html=`<span class="nm">${currentUser.name}</span><span class="meta">${role}</span>`;
+    const logo = currentLogoUrl ? `<img class="co-logo" src="${currentLogoUrl}" alt="לוגו">` : '';
+    const html=`${logo}<span class="badge-text"><span class="nm">${currentUser.name}</span><span class="meta">${role}</span></span>`;
     ['badgeMenu','badgeApp','badgeAdmin','badgeSuper','badgeProjects','badgeDrawings','badgeReport'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
   }
 
@@ -1129,15 +1154,16 @@
   // החברה הפעילה לצורכי פרויקטים/חזיתות: עבור מנהל‑על — החברה שאימץ; אחרת — חברת המשתמש
   function workCompany(){ return currentUser && currentUser.superAdmin ? superCompany : (currentUser&&currentUser.company); }
   // מנהל‑על נכנס לפרויקטים של חברה
-  function openCompanyProjects(name){
+  async function openCompanyProjects(name){
     superCompany=name;
     document.getElementById('superBackBtn').style.display='';
     document.getElementById('manageProjBtn').style.display='';   // מנהל‑על יכול ליצור פרויקטים
     document.getElementById('adminBtn').style.display='none';
+    await loadCompanyLogo(name); renderBadges();
     renderProjectsView(); showView('projectsView');
   }
   function superBackToCompanies(){
-    superCompany=null;
+    superCompany=null; currentLogoUrl=null; renderBadges();
     document.getElementById('superBackBtn').style.display='none';
     renderSuperView(); showView('superView');
   }
@@ -1379,6 +1405,7 @@
   async function openAdminFor(company){
     adminCompany=company;
     document.getElementById('adminTitle').innerHTML='ניהול משתמשים<small>'+company+'</small>';
+    if(currentUser && currentUser.superAdmin){ await loadCompanyLogo(company); }
     renderBadges(); showView('adminView');
     await renderUserTable();
   }
@@ -1551,14 +1578,36 @@
     chk.checked=true; updateUmProjectsVisibility();
     document.getElementById('umTitle').textContent='הזמנת מנהל חברה — '+name;
   }
+  let cmLogoUrl=null, cmLogoPath=null, cmLogoFileObj=null, cmLogoCleared=false;
+  function cmShowLogo(url){
+    const prev=document.getElementById('cmLogoPreview'), img=document.getElementById('cmLogoImg');
+    if(url){ img.src=url; prev.style.display=''; document.getElementById('cmLogoLabel').textContent='החלפת תמונה…'; }
+    else { prev.style.display='none'; document.getElementById('cmLogoLabel').textContent='בחירת קובץ תמונה…'; }
+  }
   function openCompanyForm(c){
     editingCompany=c||null;
     document.getElementById('cmTitle').textContent=c?'עריכת חברה':'חברה חדשה';
     const nm=document.getElementById('cmName');
     nm.value=c?(c.name||c.id):''; nm.readOnly=!!c;   // השם משמש כמזהה — לא נערך לאחר יצירה
     document.getElementById('cmQuota').value=c?(c.quota??10):10;
+    cmLogoUrl=c?(c.logoUrl||null):null; cmLogoPath=c?(c.logoPath||null):null;
+    cmLogoFileObj=null; cmLogoCleared=false;
+    document.getElementById('cmLogoFile').value='';
+    cmShowLogo(cmLogoUrl);
     companyModal.classList.add('show'); if(!c) nm.focus();
   }
+  document.getElementById('cmLogoUpload').onclick=()=>document.getElementById('cmLogoFile').click();
+  document.getElementById('cmLogoFile').onchange=(e)=>{
+    const f=e.target.files&&e.target.files[0];
+    if(!f) return;
+    if(!f.type.startsWith('image/')){ showMsg('יש לבחור קובץ תמונה.'); return; }
+    cmLogoFileObj=f; cmLogoCleared=false;
+    cmShowLogo(URL.createObjectURL(f));
+  };
+  document.getElementById('cmLogoRemove').onclick=()=>{
+    cmLogoFileObj=null; cmLogoCleared=true; cmLogoUrl=null;
+    document.getElementById('cmLogoFile').value=''; cmShowLogo(null);
+  };
   document.getElementById('addCompanyBtn').onclick=()=>openCompanyForm(null);
   document.getElementById('cmCancel').onclick=()=>companyModal.classList.remove('show');
   document.getElementById('cmSave').onclick=async ()=>{
@@ -1566,12 +1615,27 @@
     const quota=parseInt(document.getElementById('cmQuota').value,10);
     if(!name){ showMsg('יש להזין שם חברה.'); return; }
     if(!(quota>0)){ showMsg('מכסת משתמשים לא תקינה.'); return; }
+    const btn=document.getElementById('cmSave'); btn.disabled=true;
     try{
-      await db.collection('companies').doc(name).set({ name, quota }, {merge:true});
+      const data={ name, quota };
+      // טיפול בלוגו
+      if(cmLogoFileObj && storage){
+        showMsg('מעלה לוגו…', 8000);
+        const path='logos/'+name;
+        const ref=storage.ref().child(path);
+        await ref.put(cmLogoFileObj);
+        data.logoUrl=await ref.getDownloadURL(); data.logoPath=path;
+      } else if(cmLogoCleared){
+        if(cmLogoPath && storage){ try{ await storage.ref().child(cmLogoPath).delete(); }catch(e){} }
+        data.logoUrl=firebase.firestore.FieldValue.delete();
+        data.logoPath=firebase.firestore.FieldValue.delete();
+      }
+      await db.collection('companies').doc(name).set(data, {merge:true});
       companyModal.classList.remove('show');
       showMsg(editingCompany?'החברה עודכנה':'נוצרה חברה: '+name);
       renderSuperView();
     }catch(err){ console.error(err); showMsg('שגיאה בשמירה: '+(err.code||err.message)); }
+    finally{ btn.disabled=false; }
   };
 
   /* ===================== פתיחת חזית ===================== */
